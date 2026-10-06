@@ -711,7 +711,7 @@ kbd {
 [data-demo="boards"] .feature-demo { --demo-controls: 6.75rem; }
 [data-demo="colour"] .feature-demo { --demo-controls: 9.5rem; }
 [data-demo="toolbar"] .feature-demo { --demo-controls: 7rem; }
-[data-demo="capture"] .feature-demo { --demo-thumb: 7.5rem; }
+[data-demo="capture"] .feature-demo { --demo-thumb: 8.5rem; }
 
 @container demo (max-width: 29.99rem) {
   .feature-demo::after,
@@ -722,8 +722,6 @@ kbd {
   [data-demo="colour"] .demo { --demo-controls: 11.25rem; }
   [data-demo="toolbar"] .feature-demo::after,
   [data-demo="toolbar"] .demo { --demo-controls: 9.25rem; }
-  [data-demo="capture"] .feature-demo::after,
-  [data-demo="capture"] .demo { --demo-thumb: 9.75rem; }
 }
 
 @container demo (max-width: 20.49rem) {
@@ -740,7 +738,7 @@ kbd {
   [data-demo="toolbar"] .feature-demo::after,
   [data-demo="toolbar"] .demo { --demo-controls: 13.75rem; }
   [data-demo="capture"] .feature-demo::after,
-  [data-demo="capture"] .demo { --demo-thumb: 11.25rem; }
+  [data-demo="capture"] .demo { --demo-thumb: 10rem; }
 }
 
 @media (scripting: enabled) {
