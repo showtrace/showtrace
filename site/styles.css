@@ -614,12 +614,25 @@ kbd {
   margin-top: var(--space-6);
 }
 
+/* 1rem of padding at 320 px, 1.5rem from about 720 px: the demonstration keeps the width it needs. */
 .feature {
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: var(--radius-l);
-  padding: var(--space-5);
+  padding: clamp(1rem, 0.6rem + 2vw, 1.5rem);
   min-width: 0;
+}
+
+/* Cards side by side share their rows, so that their headings, their text and their demonstrations start on one
+   line. A browser without subgrid lays each card out on its own, as before. */
+@supports (grid-template-rows: subgrid) {
+  .features > .feature:not(.feature-lead) {
+    display: grid;
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+    row-gap: 0;
+    align-content: start;
+  }
 }
 
 .feature-head {
@@ -642,11 +655,14 @@ kbd {
   grid-column: 1 / -1;
 }
 
+/* The first card is wide: its text on the left, its demonstration over three rows on the right. The rows have no
+   gap, so the heading sits as close to its text as in the other cards, and the last row takes what is left. */
 @media (min-width: 56rem) {
   .feature-lead {
     display: grid;
     grid-template-columns: minmax(14rem, 0.8fr) minmax(0, 1.6fr);
-    gap: var(--space-5) var(--space-6);
+    grid-template-rows: auto auto 1fr;
+    gap: 0 var(--space-6);
     align-items: start;
   }
 
