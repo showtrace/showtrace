@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- The 16 px mark of brand.md, section 6.4: a disc in the brand teal with a short white arc that ends in a white dot.
+       The dot is 3.6 px wide at 16 px, above the 3 px minimum. A session's drawing; test it on both taskbar themes. -->
+  <circle cx="8" cy="8" r="8" fill="#0E8192"/>
+  <path d="M4.5 10.5 C4.5 6.5, 8.5 4, 10.5 6 C11.8 7.4, 11.8 9, 11.5 10.2" fill="none" stroke="#FFFFFF" stroke-width="1.75" stroke-linecap="round"/>
+  <circle cx="11.5" cy="10.5" r="1.8" fill="#FFFFFF"/>
+</svg>

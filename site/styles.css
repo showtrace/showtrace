@@ -1,0 +1,546 @@
+/* Showtrace website.
+   Colour tokens: brand.md, section 6.2. Type: 6.3 (the system font stack until the typeface is decided).
+   Motion: 6.6, the self-drawing stroke on the logo at load and nowhere else.
+   No fonts, scripts or images from other domains. Works without JavaScript and at 320 px. */
+
+:root {
+  color-scheme: light dark;
+
+  /* Tokens */
+  --trace-teal: #0E8192;
+  --trace-teal-deep: #0A6B7A;
+  --trace-teal-light: #4DD0E1;
+  --ink: #1A1F24;
+  --ink-soft: #586069;
+  --paper: #FFFFFF;
+  --paper-soft: #F7F8F9;
+  --slate: #202124;
+  --chalk: #EEEEEE;
+  --chalk-soft: #AAAAAA;
+  --signal-light: #B45309;
+  --signal-dark: #FDBA74;
+
+  /* Roles, light. Small teal text uses the deep teal (contrast table); the brand teal is for graphics and large text. */
+  --bg: var(--paper);
+  --surface: var(--paper-soft);
+  --text: var(--ink);
+  --text-soft: var(--ink-soft);
+  --accent: var(--trace-teal);
+  --accent-text: var(--trace-teal-deep);
+  --person: var(--trace-teal);
+  --ai: var(--ink-soft);
+  --signal: var(--signal-light);
+  --logo: var(--trace-teal);
+  --rule: rgba(88, 96, 105, 0.25);
+  --focus: var(--trace-teal);
+
+  --radius-s: 4px;
+  --radius-m: 6px;
+  --radius-l: 12px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --measure: 38rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: var(--slate);
+    --surface: rgba(238, 238, 238, 0.06);
+    --text: var(--chalk);
+    --text-soft: var(--chalk-soft);
+    --accent: var(--trace-teal-light);
+    --accent-text: var(--trace-teal-light);
+    --person: var(--trace-teal-light);
+    --ai: var(--chalk-soft);
+    --signal: var(--signal-dark);
+    --logo: var(--chalk);
+    --rule: rgba(170, 170, 170, 0.3);
+    --focus: var(--trace-teal-light);
+  }
+}
+
+/* Base */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 100%;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 0.5em;
+  letter-spacing: -0.01em;
+  overflow-wrap: break-word;
+}
+
+h1 {
+  font-size: clamp(2rem, 1.2rem + 4vw, 3.5rem);
+}
+
+h2 {
+  font-size: clamp(1.5rem, 1.1rem + 2vw, 2.25rem);
+}
+
+h3 {
+  font-size: 1.0625rem;
+}
+
+p,
+dl,
+ul,
+ol {
+  margin: 0 0 1em;
+}
+
+a {
+  color: var(--accent-text);
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.wrap {
+  width: min(100% - 2.5rem, 68rem);
+  margin-inline: auto;
+}
+
+.skip {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 10;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  color: var(--accent-text);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-m);
+}
+
+.skip:focus {
+  top: 1rem;
+}
+
+/* Header and logo */
+
+.site-header {
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.site-header .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  color: var(--logo);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+.logo:hover {
+  color: var(--logo);
+}
+
+.logo svg {
+  width: 2.75em;
+  height: 2em;
+  overflow: visible;
+}
+
+/* The stroke draws itself once, 1100 ms, and the dot appears after 70 percent of that time. */
+.logo-stroke {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: draw 1100ms var(--ease) forwards;
+}
+
+.logo-dot {
+  opacity: 0;
+  animation: appear 1ms linear 770ms forwards;
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes appear {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-stroke {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .logo-dot {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+.site-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+}
+
+.site-nav a {
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.site-nav a:hover,
+.site-nav a:focus-visible {
+  text-decoration: underline;
+}
+
+/* Hero */
+
+.hero {
+  padding: clamp(3rem, 8vw, 6rem) 0 clamp(2rem, 6vw, 4rem);
+}
+
+.hero h1 {
+  max-width: 20ch;
+}
+
+.lead {
+  font-size: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
+  max-width: var(--measure);
+}
+
+.sentence {
+  max-width: var(--measure);
+  font-size: 1.0625rem;
+}
+
+.status-line {
+  color: var(--text-soft);
+}
+
+/* Sections */
+
+.section {
+  padding: clamp(2.5rem, 6vw, 4.5rem) 0;
+  border-top: 1px solid var(--rule);
+}
+
+.section p,
+.section dl {
+  max-width: var(--measure);
+}
+
+.section h2 .status {
+  vertical-align: middle;
+  margin-left: 0.5rem;
+  position: relative;
+  top: -0.15em;
+}
+
+.quotes {
+  max-width: var(--measure);
+  padding-left: 1.25rem;
+}
+
+.quotes li {
+  margin-bottom: 0.35em;
+}
+
+.tagline {
+  font-size: clamp(1.25rem, 1.05rem + 1vw, 1.75rem);
+  line-height: 1.3;
+}
+
+/* Status words. The word carries the meaning; the colour only repeats it. */
+
+.status {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  line-height: 1.3;
+  padding: 0.2rem 0.55rem;
+  border: 1.5px solid currentColor;
+  border-radius: var(--radius-s);
+  white-space: nowrap;
+}
+
+.status-today {
+  color: #FFFFFF;
+  background: var(--trace-teal-deep);
+  border-color: var(--trace-teal-deep);
+}
+
+@media (prefers-color-scheme: dark) {
+  .status-today {
+    color: var(--slate);
+    background: var(--trace-teal-light);
+    border-color: var(--trace-teal-light);
+  }
+}
+
+.status-planned {
+  color: var(--text-soft);
+}
+
+.status-phase2 {
+  color: var(--text-soft);
+  border-style: dashed;
+}
+
+/* Features */
+
+.features {
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+}
+
+.features li {
+  background: var(--surface);
+  border-radius: var(--radius-l);
+  padding: 1.1rem 1.25rem;
+}
+
+.features h3 {
+  margin: 0 0 0.35rem;
+}
+
+.features p {
+  margin: 0;
+}
+
+/* Screenshots and placeholders */
+
+.shots {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  margin-top: 1.75rem;
+}
+
+figure {
+  margin: 0;
+}
+
+figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--rule);
+}
+
+.placeholder img {
+  border: 2px dashed var(--rule);
+}
+
+figcaption {
+  font-size: 0.9375rem;
+  color: var(--text-soft);
+  margin-top: 0.5rem;
+}
+
+/* The trace mock: number, action, author, reason, in that order (brand.md, section 7). */
+
+.trace {
+  background: var(--surface);
+  border-radius: var(--radius-l);
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0 0;
+  max-width: 52rem;
+}
+
+.trace-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.trace-title {
+  font-weight: 600;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  grid-template-areas:
+    "n action"
+    "n author"
+    "n reason";
+  gap: 0.15rem 0.75rem;
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--rule);
+}
+
+.step:first-child {
+  border-top: 0;
+}
+
+@media (min-width: 44rem) {
+  .step {
+    grid-template-columns: 2rem minmax(10rem, 1.1fr) minmax(8rem, 0.8fr) 1.5fr;
+    grid-template-areas: "n action author reason";
+    align-items: baseline;
+  }
+}
+
+.step-n {
+  grid-area: n;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.step-action {
+  grid-area: action;
+  font-weight: 500;
+}
+
+.step-author {
+  grid-area: author;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-soft);
+}
+
+.author-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.author-agent {
+  font-size: 0.875rem;
+}
+
+.step-reason {
+  grid-area: reason;
+  color: var(--text-soft);
+}
+
+.dot,
+.ring {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.dot {
+  background: var(--person);
+}
+
+.ring {
+  border: 2px solid var(--ai);
+  background: transparent;
+}
+
+.trace figcaption {
+  margin-top: 0.75rem;
+}
+
+/* Phase 2 intents */
+
+.intents dt {
+  font-weight: 600;
+  margin-top: 0.75em;
+}
+
+.intents dd {
+  margin: 0.15em 0 0;
+}
+
+/* Download */
+
+.download-box {
+  background: var(--surface);
+  border-radius: var(--radius-l);
+  padding: 1.25rem 1.5rem;
+  max-width: var(--measure);
+}
+
+.download-status {
+  font-size: 1.125rem;
+  margin-bottom: 0.5em;
+}
+
+.download-box p:last-child {
+  margin-bottom: 0;
+}
+
+/* Footer */
+
+.site-footer {
+  border-top: 1px solid var(--rule);
+  padding: 2rem 0 3rem;
+  color: var(--text-soft);
+  font-size: 0.9375rem;
+}
+
+.site-footer p {
+  margin: 0 0 0.6em;
+  max-width: var(--measure);
+}
+
+.note {
+  display: inline-block;
+  border: 2px dashed var(--rule);
+  border-radius: var(--radius-m);
+  padding: 0.4rem 0.75rem;
+}
