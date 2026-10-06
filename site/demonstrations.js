@@ -917,58 +917,89 @@
     },
   };
 
-  /* 2. Point: laser, halo, magnifier. */
+  /* A click on a button of the stand-in toolbar: the pointer goes to the button, and the toolbar changes as the click
+     changes it. The same approach in every demonstration of this group, so that the visitor sees where a change comes
+     from. */
+  async function tap(run, h, id, changes, ms = 500) {
+    await glide(run, h, h.tb.centre(id), ms);
+    await run.pause(150);
+    h.tb.set(changes);
+  }
+
+  /* A click on the stand-in application's button: it shows pressed for a moment. */
+  async function press(run, h) {
+    h.sc.button.classList.add('sc-pressed');
+    await run.pause(350);
+    h.sc.button.classList.remove('sc-pressed');
+  }
+
+  /* 2. Point: laser, halo, magnifier (spec 6.6, 6.7). */
   const pointDemo = {
     build(card, mount) {
       const h = stage(card, mount, { alt: 'A stand-in screen. The demonstration shows the laser pointer, the cursor halo and the magnifier lens.' });
       h.sc = screen(h.svg, 'point');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
-      h.tb = toolbar(h, { draw: true });
-      addPointer(h, P(200, 120));
+      h.tb = toolbar(h, { draw: false });
+      addPointer(h, P(330, 200));
       return h;
     },
     reset(h) {
       h.doc.reset(); clearExtras(h);
       h.halo = null; h.lens = null; h.lensLocked = false;
       h.pointer.removeAttribute('visibility');
-      h.tb.set({ active: null, on: {} });
-      movePointer(h, P(200, 120));
+      h.tb.set({ draw: false, active: null, on: {} });
+      movePointer(h, P(330, 200));
     },
     async play(run, h) {
-      h.tb.set({ active: 'laser' });
+      /* The laser button switches to draw mode; over the screen the laser hides the pointer (spec 6.4, 6.6). */
+      h.say('The laser button: draw mode, and the laser.');
+      await tap(run, h, 'laser', { draw: true, active: 'laser' });
       h.say('Laser: a red dot that hides the pointer, with a trail that fades in 1.5 s. It leaves no ink.');
-      await laser(run, h, curve(P(200, 120), P(430, 40), P(230, 330), P(470, 220), 60), 2200);
-      await run.pause(200);
-      h.tb.set({ active: null, on: { halo: 'tint' } });
-      h.extras.find(n => n.classList && n.classList.contains('laser'))?.remove();
+      /* The laser draws over the screen, not over the toolbar: it starts just below it. */
+      await glide(run, h, P(h.at.x, h.tb.bottom() + 10), 200);
+      const from = h.at;
+      const beam = await laser(run, h, curve(from, P(from.x - 40, 200), P(200, 330), P(470, 220), 60), 2200);
+      await run.pause(300);
+      /* Leaving draw mode drops the laser and brings the pointer back (spec 6.3, 6.6). */
+      h.say('Press ', { key: 'Escape' }, ': cursor mode. The dot is gone, the pointer is back, and nothing is left on the screen.');
+      beam.remove();
       h.pointer.removeAttribute('visibility');
+      h.tb.set({ draw: false, active: null });
+      await run.pause(700);
+      /* The halo is a toggle and shows in every mode (spec 6.6). */
+      h.say('The halo button: a yellow circle of 40 px around the pointer, in cursor mode as in draw mode. A recording shows it.');
+      await tap(run, h, 'halo', { on: { halo: 'tint' } });
       addHalo(h);
-      h.say('Halo: a 40 px circle around the pointer, in every mode, visible in a recording.');
-      await glide(run, h, P(540, 336), 900);
+      await glide(run, h, P(540, 300), 1000);
       await run.pause(400);
-      h.tb.set({ active: 'magnifier', on: { halo: 'tint' } });
+      /* The lens opens at 2x on the next pointer movement in draw mode and leaves the halo out (spec 6.7). */
+      h.say('The magnifier button: a lens over the pointer at 2x. It shows the screen without the halo.');
+      await tap(run, h, 'magnifier', { draw: true, active: 'magnifier', on: { halo: 'tint' } }, 700);
+      await glide(run, h, P(h.at.x, 130), 250);
       addLens(h);
-      h.say('Magnifier: a lens over the pointer at 2x. The wheel zooms from 1.5x to 8x in steps of 0.5x.');
       await glide(run, h, P(330, 236), 900);
       await run.pause(300);
-      h.say('Wheel: 4x.');
-      await run.tween(500, t => { h.zoom = 2 + Math.round(t * 4) * 0.5; h.lens.set(h.at.x, h.at.y, h.zoom); }, linear);
-      await run.pause(500);
-      h.say('Click: the lens stays where it is, showing that spot live, while the pointer moves on.');
+      /* 1.5x to 8x in steps of 0.5x (spec 6.7, 7.1). */
+      h.say('The wheel zooms from 1.5x to 8x in steps of 0.5x. Here: 4x.');
+      await run.tween(500, t => { h.zoom = LENS.start + Math.round(t * 4) * 0.5; h.lens.set(h.at.x, h.at.y, h.zoom); }, linear);
+      await run.pause(600);
+      h.say('Click: the lens stays where it is and shows that spot live, while the pointer moves on.');
       h.lensLocked = true;
-      await glide(run, h, P(250, 120), 900);
+      await glide(run, h, P(560, 120), 900);
       await run.pause(300);
-      h.end('Laser, halo and magnifier. The lens is locked at 4x; a click lets it go. The stand-in is not to scale: the real lens is 320 px.');
+      h.end('The laser left no ink. The halo is on, and the lens is locked at 4x until a click lets it go. Not to scale: the lens is 320 px in the build and 200 here, and the pointer is drawn a quarter larger.',
+        'A stand-in screen. The halo is on around the pointer, and a magnifier lens is locked at 4x over the lines of text. The laser left no ink.');
     },
   };
 
-  /* 3. Fading ink. */
+  /* The fade popup's choices and their durations (spec 5.4, 6.9 item 8). */
+  const FADE_CHOICES = [['Off', 0], ['Short', 3], ['Medium', 8], ['Long', 20]];
+
+  /* 3. Fading ink (spec 5.4). */
   const fadeDemo = {
     build(card, mount) {
-      const h = stage(card, mount, { alt: 'A stand-in screen. The demonstration draws a circle that fades after 3, 8 or 20 seconds.' });
+      const h = stage(card, mount, { alt: 'A stand-in screen. The demonstration draws an arrow, then a circle with fading ink that goes after 3, 8 or 20 seconds.' });
       h.sc = screen(h.svg, 'fade');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
       h.tb = toolbar(h, { draw: true });
       addPointer(h, P(420, 250));
@@ -981,22 +1012,61 @@
       h.controls.append(set);
       return h;
     },
-    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ active: null, on: {} }); movePointer(h, P(420, 250)); },
+    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ active: 'arrow', on: {} }); movePointer(h, P(372, 250)); },
     async play(run, h) {
       const seconds = h.choice();
-      h.tb.set({ active: 'ellipse', on: { fade: true } });
-      h.say(`Fading ink is on, ${seconds} s. The circle goes round the button.`);
+      const [name] = FADE_CHOICES.find(([, s]) => s === seconds);
+      h.say('Fading ink is off. An arrow points at the button, and it stays.');
+      await drawShape(run, h, 'arrow', P(372, 250), P(474, 314), { ms: 600 });
+      await run.pause(500);
+      h.say('The fade button: Off, Short 3 s, Medium 8 s, Long 20 s.');
+      await tap(run, h, 'fade', {});
+      const pop = fadePopup(h, name);
+      await glide(run, h, pop.at, 500);
+      await run.pause(250);
+      pop.choose();
+      await run.pause(350);
+      pop.g.remove();
+      h.tb.set({ on: { fade: true } });
+      /* A new mark takes the fade that is on when it is drawn; marks drawn before keep theirs (spec 5.4). */
+      h.say(`${name}: marks drawn from now on fade after ${seconds} s. The arrow keeps its own setting.`);
+      await tap(run, h, 'ellipse', { active: 'ellipse' });
       const node = await drawShape(run, h, 'ellipse', P(488, 306), P(624, 366), { ms: 800 });
+      await glide(run, h, P(430, 230), 400);
       for (let left = seconds; left > 0; left--) {
-        h.say(`Drawn with fading ink. It fades after ${seconds} s: gone in ${left} s.`);
+        h.say(`The circle round the button fades after ${seconds} s: gone in ${left} s.`);
         await run.hold(1000);
       }
       h.say('Fading out, 600 ms.');
       await run.tween(FADE_OUT_MS, t => node.setAttribute('opacity', round(1 - t)), linear);
       h.doc.purge(node);
-      h.end(`Gone after ${seconds} s. The spot is clean again, and undo does not bring the circle back.`);
+      h.end(`The circle round the button went after ${seconds} s, and undo does not bring it back. The arrow, drawn before fading ink was on, stays.`,
+        `A stand-in screen. An arrow points at a button. The circle that went round the button has faded after ${seconds} s.`);
     },
   };
+
+  /* The fade popup under the toolbar, with the build's four choices; choose() shows the pick as the build shows an
+     active item. at: the centre of the choice to pick. */
+  function fadePopup(h, name) {
+    const w = 52, gap = 4, pad = 6, hgt = 20;
+    const pop = popup(h, h.tb.centre('fade').x, pad * 2 + FADE_CHOICES.length * w + (FADE_CHOICES.length - 1) * gap, pad * 2 + hgt);
+    let at = null, pick = null;
+    FADE_CHOICES.forEach(([label], i) => {
+      const x = pop.x + pad + i * (w + gap), y = pop.y + pad;
+      const item = svg('rect', { class: 'tb-textbutton', x, y, width: w, height: hgt, rx: 4 });
+      pop.g.append(item, svg('text', { class: 'tb-text', x: x + w / 2, y: y + 14, 'text-anchor': 'middle', text: label }));
+      if (label === name) { at = P(x + w / 2, y + hgt / 2); pick = [x, y]; }
+    });
+    return {
+      g: pop.g, at,
+      choose() {
+        const [x, y] = pick;
+        pop.g.append(svg('rect', { x, y, width: w, height: hgt, rx: 4, class: 'tb-active' }),
+          svg('rect', { x: x + 0.75, y: y + 0.75, width: w - 1.5, height: hgt - 1.5, rx: 3.25, class: 'tb-edge' }));
+      },
+    };
+  }
+
 
   /* A popup of the toolbar that lists choices, as the board and screenshot buttons open (spec 6.9, items 11 and 12):
      one row per choice, '|' for a separator. A row is a bar, as in the other popups, and the state line names the
@@ -1283,42 +1353,40 @@
     build(card, mount) {
       const h = stage(card, mount, { alt: 'A stand-in screen with a button. The demonstration switches between draw mode and cursor mode.' });
       h.sc = screen(h.svg, 'modes');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
-      h.tb = toolbar(h, { draw: true });
+      h.tb = toolbar(h, { draw: false });
       addPointer(h, P(400, 250));
       return h;
     },
-    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ draw: true, active: null }); h.sc.button.classList.remove('sc-pressed'); movePointer(h, P(400, 250)); },
+    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ draw: false, active: null }); h.sc.button.classList.remove('sc-pressed'); movePointer(h, P(400, 250)); },
     async play(run, h) {
-      h.tb.set({ draw: true, active: 'arrow' });
+      /* Picking a drawing tool switches to draw mode, so one click starts drawing (spec 6.4); the toolbar glows (6.3). */
+      h.say('Cursor mode: clicks go to the application. One click on a tool, and you are in draw mode.');
+      await tap(run, h, 'arrow', { draw: true, active: 'arrow' }, 700);
       h.say('Draw mode: the toolbar glows, and the pointer draws on the screen.');
       await drawShape(run, h, 'arrow', P(400, 250), P(498, 330), { ms: 600 });
       await run.pause(500);
+      /* Escape from inside any application leaves draw mode; the marks stay (spec 6.3). */
       h.say('Press ', { key: 'Escape' }, ', from inside any application: cursor mode. The marks stay; clicks go to the application.');
       h.tb.set({ draw: false, active: null });
-      await run.pause(400);
+      await run.pause(600);
       await glide(run, h, P(556, 336), 700);
       await press(run, h);
       h.say('The click reaches the button under the marks.');
-      await run.pause(700);
-      h.say('One click on a tool, and you draw again.');
-      h.tb.set({ draw: true, active: 'ellipse' });
+      await run.pause(800);
+      h.say('Another click on a tool, and you draw again.');
+      await tap(run, h, 'ellipse', { draw: true, active: 'ellipse' }, 700);
       await drawShape(run, h, 'ellipse', P(488, 306), P(624, 366), { ms: 600 });
-      await run.pause(400);
-      h.say('Hold ', { key: 'Ctrl' }, ' + ', { key: 'Alt' }, ' while drawing: for a moment, clicks pass through the marks.');
+      await run.pause(500);
+      /* Hold-to-interact: while Ctrl and Alt are down in draw mode, clicks pass through; draw mode stays (spec 6.3). */
+      h.say('Hold ', { key: 'Ctrl' }, ' + ', { key: 'Alt' }, ' in draw mode: for a moment, clicks pass through the marks. Draw mode stays on.');
       await glide(run, h, P(556, 336), 600);
       await press(run, h);
       await run.pause(500);
-      h.end('Explain and operate, in turns: draw mode, Escape for the pointer, Ctrl+Alt to click through the marks for a moment.');
+      h.end('Explain and operate, in turns: one click on a tool for draw mode, Escape for the pointer, Ctrl+Alt to click through the marks for a moment.',
+        'A stand-in screen in draw mode. An arrow points at a button, and a circle goes round it; the pointer is on the button.');
     },
   };
-
-  async function press(run, h) {
-    h.sc.button.classList.add('sc-pressed');
-    await run.pause(350);
-    h.sc.button.classList.remove('sc-pressed');
-  }
 
   /* 7. Across monitors (spec 6.12 and 6.4; the build's ScreenMap). */
   const monitorsDemo = {
