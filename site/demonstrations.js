@@ -364,8 +364,12 @@
 
   const POINTER = 'M0 0 L0 17 L4.6 13.2 L7.6 19.6 L10.3 18.4 L7.4 12 L12.6 12 Z';
 
+  /* The pointer is drawn a quarter larger than the arrow at 100 percent scaling, so that it reads at card size: the
+     stand-in is not to scale. Its tip is the point it stands at. */
+  const POINTER_SCALE = 1.25;
+
   function addPointer(h, at) {
-    h.pointer = svg('g', { class: 'pointer' }, svg('path', { d: POINTER }));
+    h.pointer = svg('g', { class: 'pointer' }, svg('path', { d: POINTER, transform: `scale(${POINTER_SCALE})` }));
     h.sc.overlay.append(h.pointer);
     movePointer(h, at);
   }
