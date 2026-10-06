@@ -1215,6 +1215,7 @@
   /* ---------- Mounting, playing once in view, stopping ---------- */
 
   const mounted = [];
+  const failed = new WeakSet();
   const moving = h => Boolean(h.run && !h.run.instant);
 
   /* The play control: "Play" before any play, "Stop" while one moves, "Play again" after. One button, so that focus
@@ -1238,6 +1239,7 @@
      Resolves when the play has ended or was cancelled. */
   function start(h, how = {}) {
     const f = h.frame;
+    if (failed.has(h.card)) return Promise.resolve();
     halt(h);
     const run = new Run(Boolean(how.instant) || reducedMotion.matches || document.hidden);
     const speaks = !how.quiet && (!run.instant || !how.auto);
@@ -1251,7 +1253,7 @@
       await f.demo.play(run, h);
       if (speaks) speak(h, `${f.name}: the demonstration has ${how.stopped ? 'stopped' : 'ended'}. ${f.ended}`);
     })()
-      .catch(error => { if (error !== CANCEL) console.error(error); })
+      .catch(error => { if (error !== CANCEL) fail(h.card, error, h); })
       .finally(() => { if (h.run === run) { h.run = null; showControl(h); } });
   }
 
@@ -1279,19 +1281,40 @@
     }
   }, { threshold: 0.35 }) : null;
 
-  function mountAll() {
-    for (const card of document.querySelectorAll('[data-demo]')) {
-      const demo = DEMOS[card.dataset.demo];
-      const mount = card.querySelector('.feature-demo');
-      if (!demo || !mount) continue;
-      const h = demo.build(card, mount);
+  /* Mounts the demonstration a card names into the card's .feature-demo. */
+  function mount(card) {
+    const demo = DEMOS[card.dataset.demo];
+    const slot = card.querySelector('.feature-demo');
+    if (!demo || !slot) return;
+    let h = null;
+    try {
+      h = demo.build(card, slot);
       h.frame.demo = demo;
       h.frame.name = card.querySelector('h3')?.textContent.trim() || 'Demonstration';
       h.controls.prepend(playControl(h));
       demo.reset(h);
-      mounted.push(h);
-      if (observer) observer.observe(h.box); else start(h, { auto: true });
+    } catch (error) {
+      fail(card, error, h);
+      return;
     }
+    mounted.push(h);
+    if (observer) observer.observe(h.box); else start(h, { auto: true });
+  }
+
+  /* A demonstration whose build, reset or play throws is taken out: its card keeps its text, the other
+     demonstrations go on, and the error is logged once. */
+  function fail(card, error, h) {
+    if (failed.has(card)) return;
+    failed.add(card);
+    if (h) {
+      if (mounted.includes(h)) mounted.splice(mounted.indexOf(h), 1);
+      if (observer && h.box) observer.unobserve(h.box);
+      halt(h);
+    }
+    const slot = card.querySelector('.feature-demo');
+    slot.replaceChildren();
+    slot.hidden = true;
+    console.error(`Showtrace: the "${card.dataset.demo}" demonstration stopped with an error; its card shows its text only.`, error);
   }
 
   document.addEventListener('visibilitychange', () => {
@@ -1528,9 +1551,16 @@
   /* ---------- Start ---------- */
 
   function init() {
-    mountAll();
+    for (const card of document.querySelectorAll('[data-demo]')) mount(card);
     const box = document.querySelector('[data-sandbox]');
-    if (box) sandbox(box);
+    if (!box) return;
+    const before = [...box.childNodes];
+    try {
+      sandbox(box);
+    } catch (error) {
+      for (const node of [...box.childNodes]) if (!before.includes(node)) node.remove();
+      console.error('Showtrace: the sandbox stopped with an error; its section shows its text only.', error);
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
