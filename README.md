@@ -14,7 +14,7 @@ The pages are in `site/`. GitHub Pages serves that folder through the workflow i
 
 `site/demonstrations.js` is the one script, served by the site itself and loaded as an enhancement: the page reads and works without it, and the feature cards then stand as text. With it, each card gets a demonstration drawn in the browser on a neutral stand-in screen, labelled as a demonstration and never styled as a screenshot, and the "Try it" section gets a sandbox where a visitor draws with the pen, the highlighter, the arrow and the fading ink and saves the result as a PNG.
 
-- Each demonstration plays once when it comes into view and again on "Play again". Nothing loops. Under `prefers-reduced-motion` only the end state shows, and the control still works. When the tab is hidden, a play stops at its end state.
+- Each demonstration plays once when it comes into view and again on its play control, which reads Stop while a play moves. Stop, a hidden tab, the picture leaving the view and reduced motion turned on while the page is open each end a play at its end state. Nothing loops. Under `prefers-reduced-motion` only the end state shows, and the controls still work. A polite live region tells a screen reader that a play starts and how it ends.
 - Nothing leaves the browser. The script makes no request, sets no cookie and stores nothing; the PNG is the visitor's own download. The content security policy in the page allows scripts, styles and fonts from the site only, and `tools/check-site.ps1` reads the script for anything that would send or store.
 - What the demonstrations show follows the design spec and the README of the build in the Showtrace repository. A demonstration that shows something the build does not do is a bug.
 
