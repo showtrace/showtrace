@@ -282,8 +282,10 @@
       if (r && c.roundRect) c.roundRect(b.x, b.y, b.w, b.h, r); else c.rect(b.x, b.y, b.w, b.h);
       c.fill();
     };
+    const fills = new Map();
     for (const s of SHAPES) {
-      c.fillStyle = token(`--screen-${s.cls.slice(3)}`);
+      if (!fills.has(s.cls)) fills.set(s.cls, token(`--screen-${s.cls.slice(3)}`));
+      c.fillStyle = fills.get(s.cls);
       fillBox(s.b, s.r);
     }
     if (!label) return;
