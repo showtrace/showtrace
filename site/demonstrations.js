@@ -78,57 +78,62 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   const P = (x, y) => ({ x, y });
 
-  /* One play of a demonstration. An instant run shows the end state at once (reduced motion, a hidden tab). */
+  /* One play of a demonstration. With motion, every wait is a frame loop or a timer. An instant run shows the end
+     state at once (reduced motion, a hidden tab, Stop): it asks for no frame and sets no timer, so the whole play
+     ends before the browser paints. cancel() stops every pending wait and rejects it with CANCEL. */
   class Run {
     constructor(instant) {
       this.instant = instant;
       this.cancelled = false;
-      this.frame = 0;
-      this.timer = 0;
-      this.reject = null;
+      this.waits = new Set();
     }
 
     cancel() {
       this.cancelled = true;
-      if (this.frame) cancelAnimationFrame(this.frame);
-      if (this.timer) clearTimeout(this.timer);
-      const reject = this.reject;
-      this.reject = null;
-      if (reject) reject(CANCEL);
+      for (const wait of [...this.waits]) { wait.stop(); wait.settle(CANCEL); }
     }
 
-    /* Calls fn(progress) every frame for ms milliseconds, progress eased from 0 to 1. */
+    /* Calls fn(progress) every frame for ms milliseconds, progress eased from 0 to 1. If fn throws, the play ends
+       with that error instead of waiting for ever. */
     tween(ms, fn, ease = easeInOut) {
       if (this.cancelled) return Promise.reject(CANCEL);
       if (this.instant || ms <= 0) { fn(1); return Promise.resolve(); }
-      return new Promise((resolve, reject) => {
-        this.reject = reject;
-        const start = performance.now();
-        const step = now => {
-          const t = Math.min(1, (now - start) / ms);
-          fn(ease(t));
-          if (t < 1) { this.frame = requestAnimationFrame(step); return; }
-          this.frame = 0;
-          this.reject = null;
-          resolve();
-        };
-        this.frame = requestAnimationFrame(step);
+      return this.wait((done, fail) => {
+        const begin = performance.now();
+        let frame = requestAnimationFrame(function step(now) {
+          const t = Math.max(0, Math.min(1, (now - begin) / ms));
+          try { fn(ease(t)); } catch (error) { fail(error); return; }
+          if (t < 1) frame = requestAnimationFrame(step); else done();
+        });
+        return () => cancelAnimationFrame(frame);
       });
     }
 
-    /* A pause in the choreography. Skipped in an instant run. */
+    /* A pause in the choreography: rhythm between steps. */
     pause(ms) {
       if (this.cancelled) return Promise.reject(CANCEL);
-      if (this.instant) return Promise.resolve();
-      return this.hold(ms);
+      if (this.instant || ms <= 0) return Promise.resolve();
+      return this.wait(done => { const timer = setTimeout(done, ms); return () => clearTimeout(timer); });
     }
 
-    /* Time the build itself takes, such as the wait before fading ink goes. Kept in an instant run. */
+    /* Time the build itself takes, such as the wait before fading ink goes (spec 5.4). It waits like a pause, and an
+       instant run skips it too: under reduced motion only the end state shows. */
     hold(ms) {
-      if (this.cancelled) return Promise.reject(CANCEL);
+      return this.pause(ms);
+    }
+
+    /* One pending wait. begin(done, fail) starts it and returns how to stop it; a run may have several at once. */
+    wait(begin) {
       return new Promise((resolve, reject) => {
-        this.reject = reject;
-        this.timer = setTimeout(() => { this.timer = 0; this.reject = null; resolve(); }, ms);
+        const wait = {
+          stop: () => {},
+          settle: error => {
+            if (!this.waits.delete(wait)) return;
+            if (error === undefined) resolve(); else reject(error);
+          },
+        };
+        this.waits.add(wait);
+        wait.stop = begin(() => wait.settle(), error => wait.settle(error));
       });
     }
   }
