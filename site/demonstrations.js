@@ -262,19 +262,48 @@
 
   /* ---------- The stage of a demonstration ---------- */
 
+  const START_LINE = 'Plays when it comes into view.';
+
+  /* The frame of one demonstration: a figure with the stage (the SVG of the stand-in screen and the "Demonstration"
+     label), the state line, the controls and a live region. The contract above the demonstrations says what h
+     carries; h.frame is the frame's own and no demonstration reads it. */
   function stage(card, mount, opts) {
-    const fig = el('figure', { class: 'demo' });
-    const stageBox = el('div', { class: 'demo-stage' });
     const root = svg('svg', { viewBox: '0 0 640 400', role: 'img', 'aria-label': opts.alt, focusable: 'false' });
-    stageBox.append(root, el('span', { class: 'demo-label', text: opts.label || 'Demonstration' }));
-    const state = el('p', { class: 'demo-state', text: 'Plays when it comes into view.' });
+    const stageBox = el('div', { class: 'demo-stage' }, root, el('span', { class: 'demo-label', text: opts.label || 'Demonstration' }));
+    const line = el('span', { class: 'demo-state-line', text: START_LINE });
+    const state = el('p', { class: 'demo-state' }, line);
     const controls = el('div', { class: 'demo-controls' });
-    fig.append(stageBox, state, controls);
-    mount.append(fig);
-    const h = { card, fig, box: stageBox, svg: root, state, controls, extras: [], at: P(320, 200) };
-    h.say = (...parts) => { state.replaceChildren(...parts.map(part => (typeof part === 'string' ? part : el('kbd', { text: part.key })))); };
-    h.end = text => { h.say(text); root.setAttribute('aria-label', text); };
+    const live = el('div', { class: 'demo-live', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' });
+    mount.append(el('figure', { class: 'demo' }, stageBox, state, controls, live));
+    const h = { card, box: stageBox, svg: root, state, controls, extras: [], at: P(320, 200), run: null };
+    h.frame = { line, live, ended: '', played: false };
+    h.say = (...parts) => say(h, parts);
+    h.end = (text, alt = text) => end(h, text, alt);
     return h;
+  }
+
+  /* The parts of a line: strings, and { key: 'Escape' } for a key. */
+  const nodesOf = parts => parts.map(part => (typeof part === 'string' ? part : el('kbd', { text: part.key })));
+  const textOf = parts => parts.map(part => (typeof part === 'string' ? part : part.key)).join('');
+
+  /* A line in the state line. During a play it is shown and not announced: the live region says only that a play
+     starts and how it ends. Outside a play only a control says something, so then the line is announced too. */
+  function say(h, parts) {
+    h.frame.line.replaceChildren(...nodesOf(parts));
+    if (!h.run) speak(h, textOf(parts));
+  }
+
+  /* The end line. It is shown, and alt becomes the text alternative of the stand-in screen. */
+  function end(h, text, alt) {
+    h.frame.line.replaceChildren(text);
+    h.svg.setAttribute('aria-label', alt);
+    h.frame.ended = text;
+    if (!h.run) speak(h, text);
+  }
+
+  /* The live region is polite: a screen reader says it when the visitor pauses, without moving focus (WCAG 4.1.3). */
+  function speak(h, text) {
+    h.frame.live.textContent = text;
   }
 
   /* Things a play adds outside the document: the laser, the halo, the lens, popups, the dim. Reset removes them. */
@@ -783,7 +812,7 @@
       h.tb = toolbar(h, { draw: true });
       addPointer(h, P(400, 240));
       h.buttons = {};
-      const choose = kind => { h.run?.cancel(); h.run = null; setBoard(new Run(true), h, kind); h.say(kind ? `${BOARDS[kind].label}. Draw mode is on; the screen marks wait underneath.` : 'Board closed: the screen marks are back.'); };
+      const choose = async kind => { await stop(h); setBoard(new Run(true), h, kind); h.say(kind ? `${BOARDS[kind].label}. Draw mode is on; the screen marks wait underneath.` : 'Board closed: the screen marks are back.'); };
       h.controls.append(group('Board',
         ...[['', 'None'], ...Object.entries(BOARDS).map(([k, b]) => [k, b.label])].map(([kind, label]) => {
           const b = button(label, () => choose(kind || null), { 'aria-pressed': 'false' });
@@ -859,8 +888,8 @@
       addPointer(h, P(160, 60));
       h.thumb = el('div', { class: 'demo-thumb', hidden: '' });
       h.state.after(h.thumb);
-      h.controls.append(button('Full screen', () => {
-        h.run?.cancel(); h.run = null;
+      h.controls.append(button('Full screen', async () => {
+        await stop(h);
         showShot(h, { x: 0, y: 0, w: 640, h: 400 });
         h.say('Full screen: the monitor under the pointer, with the marks, without the toolbar and the pointer.');
       }));
@@ -1082,7 +1111,7 @@
       h.tb = toolbar(h, { draw: true, scale: 0.85, y: 8 });
       addPointer(h, P(400, 260));
       h.buttons = {};
-      const place = (name, changes, text) => { h.run?.cancel(); h.run = null; h.tb.set(changes); h.say(text); shown(h); };
+      const place = async (name, changes, text) => { await stop(h); h.tb.set(changes); h.say(text); shown(h); };
       const shapes = [
         ['horizontal', 'Horizontal', { vertical: false, collapsed: false, hidden: false, x: 320, y: 8 }, 'Horizontal, at the top centre of the monitor.'],
         ['vertical', 'Vertical', { vertical: true, collapsed: false, hidden: false, x: 40, y: 50 }, 'Vertical.'],
@@ -1183,28 +1212,70 @@
     monitors: monitorsDemo, colour: colourDemo, toolbar: toolbarDemo, trace: traceDemo('trace'), authors: traceDemo('authors'),
   };
 
-  /* ---------- Mounting, playing once in view, stopping when hidden ---------- */
+  /* ---------- Mounting, playing once in view, stopping ---------- */
 
   const mounted = [];
+  const moving = h => Boolean(h.run && !h.run.instant);
 
-  function start(h, instant = false) {
-    if (h.run) h.run.cancel();
-    h.demo.reset(h);
-    const run = new Run(instant || reducedMotion.matches || document.hidden);
+  /* The play control: "Play" before any play, "Stop" while one moves, "Play again" after. One button, so that focus
+     stays on it after a click; a hidden copy of the longest label keeps its width, so that the controls next to it
+     do not move when the label changes. */
+  function playControl(h) {
+    const label = el('span', { text: 'Play' });
+    const b = button('', () => (moving(h) ? stop(h, { stopped: true }) : start(h)), { class: 'btn demo-play' });
+    b.append(label, el('span', { class: 'demo-play-fit', 'aria-hidden': 'true', text: 'Play again' }));
+    h.frame.control = label;
+    return b;
+  }
+
+  function showControl(h) {
+    h.frame.control.textContent = moving(h) ? 'Stop' : h.frame.played ? 'Play again' : 'Play';
+  }
+
+  /* Plays a demonstration from its start state: with motion when the visitor allows motion and the tab is shown,
+     otherwise as an instant run that shows the end state at once. how.auto: the frame started it, not the visitor;
+     how.instant: show the end state; how.quiet: announce nothing; how.stopped: announce the end as a stop.
+     Resolves when the play has ended or was cancelled. */
+  function start(h, how = {}) {
+    const f = h.frame;
+    halt(h);
+    const run = new Run(Boolean(how.instant) || reducedMotion.matches || document.hidden);
+    const speaks = !how.quiet && (!run.instant || !how.auto);
     h.run = run;
-    h.demo.play(run, h)
+    f.played = true;
+    f.ended = '';
+    showControl(h);
+    if (speaks && !run.instant) speak(h, `${f.name}: the demonstration is playing.`);
+    return (async () => {
+      f.demo.reset(h);
+      await f.demo.play(run, h);
+      if (speaks) speak(h, `${f.name}: the demonstration has ${how.stopped ? 'stopped' : 'ended'}. ${f.ended}`);
+    })()
       .catch(error => { if (error !== CANCEL) console.error(error); })
-      .finally(() => { if (h.run === run) h.run = null; });
+      .finally(() => { if (h.run === run) { h.run = null; showControl(h); } });
+  }
+
+  /* Stops a play in progress at its end state and resolves once the end state shows. A demonstration's own control
+     awaits it before it changes the picture, so that it changes a known picture. Quiet, except for Stop. */
+  function stop(h, how = {}) {
+    if (!h.run) return Promise.resolve();
+    return start(h, Object.assign({ instant: true, quiet: !how.stopped }, how));
+  }
+
+  /* Cancels a play where it is, before a new one starts. */
+  function halt(h) {
+    const run = h.run;
+    h.run = null;
+    if (run) run.cancel();
   }
 
   const observer = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
       const h = mounted.find(m => m.box === entry.target);
-      if (!h || h.played) continue;
-      h.played = true;
+      if (!h || h.frame.played) continue;
       observer.unobserve(entry.target);
-      start(h);
+      start(h, { auto: true });
     }
   }, { threshold: 0.35 }) : null;
 
@@ -1214,19 +1285,18 @@
       const mount = card.querySelector('.feature-demo');
       if (!demo || !mount) continue;
       const h = demo.build(card, mount);
-      h.demo = demo;
-      h.run = null;
-      h.played = false;
-      h.controls.prepend(button('Play again', () => start(h)));
+      h.frame.demo = demo;
+      h.frame.name = card.querySelector('h3')?.textContent.trim() || 'Demonstration';
+      h.controls.prepend(playControl(h));
       demo.reset(h);
       mounted.push(h);
-      if (observer) observer.observe(h.box); else start(h, true);
+      if (observer) observer.observe(h.box); else start(h, { auto: true });
     }
   }
 
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) return;
-    for (const h of mounted) if (h.run) { h.run.cancel(); start(h, true); }
+    for (const h of mounted) if (moving(h)) stop(h);
   });
 
   /* ---------- The sandbox: draw on the stand-in screen, save a PNG ---------- */

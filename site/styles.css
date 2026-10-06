@@ -557,6 +557,33 @@ kbd {
   color: var(--accent-text);
 }
 
+/* The play control keeps the width of its longest label: the labels share one grid cell and the copy is hidden. */
+.demo-play {
+  display: inline-grid;
+  justify-items: center;
+}
+
+.demo-play > span {
+  grid-area: 1 / 1;
+}
+
+.demo-play-fit {
+  visibility: hidden;
+}
+
+/* The live region: a screen reader reads it; nobody sees it. */
+.demo-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .control-group {
   display: flex;
   flex-wrap: wrap;
