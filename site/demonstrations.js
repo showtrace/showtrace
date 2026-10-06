@@ -858,64 +858,83 @@
      Errors. A build, reset or play that throws takes its demonstration out: its card keeps its text, the other
      demonstrations go on, and the error is logged once. */
 
-  /* 1. Draw on the live screen. */
+  /* The pointer goes to a button of the stand-in toolbar and clicks it, as a tool, a popup or a setting is chosen in
+     the build; changes are what the click does to the toolbar. */
+  async function pick(run, h, id, changes) {
+    await glide(run, h, h.tb.centre(id), 450);
+    await run.pause(150);
+    if (changes) h.tb.set(changes);
+  }
+
+  /* 1. Draw on the live screen (spec 6.4). Each tool is picked on the stand-in toolbar first, as in the build, where
+     picking a drawing tool also turns draw mode on. */
   const drawDemo = {
     build(card, mount) {
       const h = stage(card, mount, { alt: 'A stand-in screen. The demonstration draws seven kinds of marks on it.' });
       h.sc = screen(h.svg, 'draw');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
       h.tb = toolbar(h, { draw: true });
       addPointer(h, P(400, 240));
-      const note = () => h.say(`${h.doc.count} ${h.doc.count === 1 ? 'mark' : 'marks'} on the screen.`);
+      /* A control acts on the end state: a play in progress jumps there first. */
+      const act = (fn, nothing) => async () => {
+        await stop(h);
+        const text = fn();
+        if (!text) { h.say(nothing); return; }
+        h.end(text, marksAlt(h));
+      };
+      const count = () => `${h.doc.count} ${h.doc.count === 1 ? 'mark' : 'marks'} on the screen.`;
       h.controls.append(
-        button('Undo', () => { if (h.doc.undo()) note(); }),
-        button('Redo', () => { if (h.doc.redo()) note(); }),
-        button('Clear', () => { if (h.doc.clear()) h.say('Cleared. Undo brings the marks back in one step.'); }));
+        button('Undo', act(() => h.doc.undo() && `Undo. ${count()}`, 'Nothing to undo.')),
+        button('Redo', act(() => h.doc.redo() && `Redo. ${count()}`, 'Nothing to redo.')),
+        button('Clear', act(() => h.doc.clear() && 'Cleared. Undo brings every mark back in one step.', 'Nothing to clear.')));
       return h;
     },
     reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ active: null }); movePointer(h, P(400, 240)); },
     async play(run, h) {
-      h.tb.set({ active: 'pen' });
-      h.say('Pen: a smooth stroke, 4 px, in the pen colour.');
-      await drawStroke(run, h, curve(P(190, 172), P(250, 160), P(330, 184), P(400, 170), 36, 1.2), { ms: 900 });
+      const tool = async (id, text) => { await pick(run, h, id, { active: id }); h.say(text); };
+      await tool('pen', 'Pen: a smooth stroke, 4 px, in the pen colour.');
+      tagMark(await drawStroke(run, h, curve(P(190, 172), P(250, 160), P(330, 184), P(400, 170), 36, 1.2), { ms: 900 }), 'a pen stroke');
       await run.pause(300);
-      h.tb.set({ active: 'highlighter' });
-      h.say('Highlighter: three times wider, translucent, flat ends.');
-      await drawStroke(run, h, curve(P(186, 91), P(280, 90), P(380, 92), P(470, 91), 24, 0.5), { highlighter: true, ms: 700 });
+      await tool('highlighter', 'Highlighter: three times wider, translucent, flat ends.');
+      tagMark(await drawStroke(run, h, curve(P(186, 91), P(280, 90), P(380, 92), P(470, 91), 24, 0.5), { highlighter: true, ms: 700 }), 'a highlighter stroke');
       await run.pause(300);
-      h.tb.set({ active: 'line' });
-      h.say('Line. Hold Shift for 45 degree steps.');
-      await drawShape(run, h, 'line', P(560, 120), P(480, 190), { ms: 500 });
+      /* Upright, one of the 45 degree steps that Shift gives (spec 6.4). */
+      await tool('line', 'Line. Hold Shift for 45 degree steps.');
+      tagMark(await drawShape(run, h, 'line', P(170, 82), P(170, 160), { ms: 500 }), 'a line');
       await run.pause(300);
-      h.tb.set({ active: 'arrow' });
-      h.say('Arrow: the head sits at the end and grows with the width.');
-      await drawShape(run, h, 'arrow', P(430, 384), P(496, 340), { ms: 600 });
+      await tool('arrow', 'Arrow: the head sits at the end and grows with the width.');
+      tagMark(await drawShape(run, h, 'arrow', P(430, 384), P(496, 340), { ms: 600 }), 'an arrow');
       await run.pause(300);
-      h.tb.set({ active: 'rectangle' });
-      h.say('Rectangle. Hold Shift for a square.');
-      await drawShape(run, h, 'rectangle', P(172, 180), P(482, 330), { ms: 600 });
+      await tool('rectangle', 'Rectangle. Hold Shift for a square.');
+      tagMark(await drawShape(run, h, 'rectangle', P(176, 182), P(480, 328), { ms: 600 }), 'a rectangle');
       await run.pause(300);
-      h.tb.set({ active: 'ellipse' });
-      h.say('Ellipse. Hold Shift for a circle.');
-      await drawShape(run, h, 'ellipse', P(8, 100), P(130, 126), { ms: 600 });
+      await tool('ellipse', 'Ellipse. Hold Shift for a circle.');
+      tagMark(await drawShape(run, h, 'ellipse', P(8, 100), P(130, 126), { ms: 600 }), 'an ellipse');
       await run.pause(300);
-      h.tb.set({ active: 'text' });
-      h.say('Text: click to type. Click the text later to edit, move or resize it.');
-      await drawText(run, h, P(500, 272), 'Click here', { ms: 700 });
-      await glide(run, h, P(590, 250), 300);
+      await tool('text', 'Text: click to type. Click the text later to edit, move or resize it.');
+      tagMark(await drawText(run, h, P(500, 272), 'Click here', { ms: 700 }), 'the text Click here');
       await run.pause(400);
-      h.tb.set({ active: null });
-      h.say('Undo takes the text back.');
-      await run.pause(300);
+      await pick(run, h, 'undo');
+      h.say('Undo, on the toolbar, takes the text back.');
       h.doc.undo();
-      await run.pause(700);
+      await run.pause(900);
+      await pick(run, h, 'redo');
       h.say('Redo brings it back.');
       h.doc.redo();
       await run.pause(600);
-      h.end('Seven kinds of marks on the live screen, on top of any application. Undo, redo and clear below work on them.');
+      h.end('Seven kinds of marks on the live screen, on top of any application. Undo, redo and clear below work on them.', marksAlt(h));
     },
   };
+
+  /* What a mark is, for the text alternative of the stand-in screen. */
+  function tagMark(node, words) { node.setAttribute('data-kind', words); return node; }
+
+  function marksAlt(h) {
+    const kinds = [...h.sc.marks.children].map(n => n.getAttribute('data-kind')).filter(Boolean);
+    if (!kinds.length) return 'A stand-in screen with no marks.';
+    const list = kinds.length === 1 ? kinds[0] : `${kinds.slice(0, -1).join(', ')} and ${kinds[kinds.length - 1]}`;
+    return `A stand-in screen with ${kinds.length === 1 ? 'one mark' : `${kinds.length} marks`}: ${list}.`;
+  }
 
   /* A click on a button of the stand-in toolbar: the pointer goes to the button, and the toolbar changes as the click
      changes it. The same approach in every demonstration of this group, so that the visitor sees where a change comes
@@ -1416,60 +1435,68 @@
     },
   };
 
-  /* 8. Colour and width (spec 6.9, items 6 and 7). */
+  /* 8. Colour and width (spec 6.9, items 6 and 7). A pick sets the pen for what is drawn next; marks already drawn keep
+     their colour and width. So the palette and the slider below the stage set the pen and draw a sample stroke with it. */
   const colourDemo = {
     build(card, mount) {
       const h = stage(card, mount, { alt: 'A stand-in screen. The demonstration picks a colour from the palette, a width from the slider and a custom colour.' });
       h.sc = screen(h.svg, 'colour');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
       h.tb = toolbar(h, { draw: true, active: 'pen' });
       addPointer(h, P(400, 240));
-      h.sample = null;
-      const apply = () => {
-        if (!h.sample) return;
-        h.sample.setAttribute('stroke', h.colour);
-        h.sample.setAttribute('stroke-width', h.width);
-        h.tb.set({ colour: h.colour, width: h.width });
-        h.say(`The last stroke: ${h.colour}, ${h.width} px.`);
-      };
-      const swatches = PALETTE.map(hex => {
-        const b = button('', () => { h.colour = hex; apply(); }, { class: 'swatch', 'aria-label': `Colour ${hex}` });
+      /* The picker's square (white to the hue, then to black) and its hue strip. */
+      const at = (offset, colour, opacity = 1) => svg('stop', { offset: round(offset), 'stop-color': colour, 'stop-opacity': opacity });
+      h.sc.defs.append(
+        svg('linearGradient', { id: 'picker-white' }, at(0, '#FFFFFF'), at(1, '#FFFFFF', 0)),
+        svg('linearGradient', { id: 'picker-black', x2: 0, y2: 1 }, at(0, '#000000', 0), at(1, '#000000')),
+        svg('linearGradient', { id: 'picker-hue', x2: 0, y2: 1 }, ...['#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF', '#FF0000'].map((c, i) => at(i / 6, c))));
+      h.swatches = PALETTE.map(hex => {
+        const b = button('', () => setPen(h, { colour: hex }), { class: 'swatch', 'aria-label': `Colour ${hex}`, 'aria-pressed': 'false' });
         b.style.setProperty('--swatch', hex);
         return b;
       });
-      const range = el('input', { type: 'range', min: 1, max: 40, value: PEN_WIDTH, 'aria-label': 'Width, 1 to 40' });
-      const out = el('output', { text: String(PEN_WIDTH) });
-      range.addEventListener('input', () => { h.width = Number(range.value); out.textContent = range.value; apply(); });
-      h.range = range; h.out = out;
-      h.controls.append(group('Palette', ...swatches), group('Width', range, out));
+      h.range = el('input', { type: 'range', min: 1, max: 40, value: PEN_WIDTH, 'aria-label': 'Width, 1 to 40' });
+      h.out = el('output', { text: String(PEN_WIDTH) });
+      /* The value is read before the play is stopped: the end state of a play sets the slider too. */
+      h.range.addEventListener('input', () => setPen(h, { width: Number(h.range.value) }));
+      h.controls.append(group('Palette', ...h.swatches), group('Width', h.range, h.out));
       return h;
     },
     reset(h) {
-      h.doc.reset(); clearExtras(h); h.sample = null;
+      h.doc.reset(); clearExtras(h);
       h.colour = INK.pen; h.width = PEN_WIDTH;
-      h.range.value = String(PEN_WIDTH); h.out.textContent = String(PEN_WIDTH);
-      h.tb.set({ colour: INK.pen, width: PEN_WIDTH, active: 'pen' });
+      showPen(h);
+      h.tb.set({ active: 'pen' });
       movePointer(h, P(400, 240));
     },
     async play(run, h) {
-      h.say('The colour button opens the palette: 32 colours in four rows, recent custom colours, and Custom.');
       const cell = 14, gap = 3, pad = 6;
-      const pal = popup(h, h.tb.centre('colour').x, pad * 2 + 8 * cell + 7 * gap, pad * 2 + 4 * cell + 3 * gap + 24);
-      const swatches = PALETTE.map((hex, i) => svg('rect', { x: pal.x + pad + (i % 8) * (cell + gap), y: pal.y + pad + Math.floor(i / 8) * (cell + gap), width: cell, height: cell, rx: 3, fill: hex, class: 'tb-swatch' }));
-      pal.g.append(...swatches,
-        svg('rect', { class: 'tb-textbutton', x: pal.x + pad, y: pal.y + pal.h - pad - 16, width: 46, height: 16, rx: 4 }),
-        svg('rect', { class: 'tb-textbutton', x: pal.x + pad + 52, y: pal.y + pal.h - pad - 16, width: 78, height: 16, rx: 4 }));
+      const centreOf = r => P(+r.getAttribute('x') + +r.getAttribute('width') / 2, +r.getAttribute('y') + +r.getAttribute('height') / 2);
+      /* The palette popup: 32 colours in four rows, then Custom and Use at startup. */
+      const openPalette = async () => {
+        await pick(run, h, 'colour');
+        const pal = popup(h, h.tb.centre('colour').x, pad * 2 + 8 * cell + 7 * gap, pad * 2 + 4 * cell + 3 * gap + 24);
+        const swatches = PALETTE.map((hex, i) => svg('rect', { x: pal.x + pad + (i % 8) * (cell + gap), y: pal.y + pad + Math.floor(i / 8) * (cell + gap), width: cell, height: cell, rx: 3, fill: hex, class: 'tb-swatch' }));
+        const custom = svg('rect', { class: 'tb-textbutton', x: pal.x + pad, y: pal.y + pal.h - pad - 16, width: 46, height: 16, rx: 4 });
+        pal.g.append(...swatches, custom, svg('rect', { class: 'tb-textbutton', x: pal.x + pad + 52, y: pal.y + pal.h - pad - 16, width: 78, height: 16, rx: 4 }));
+        return { g: pal.g, swatches, custom };
+      };
+
+      let pal = await openPalette();
+      h.say('The colour button opens the palette: 32 colours in four rows, recent custom colours, and Custom.');
+      await run.pause(500);
       const blue = 10;
-      await glide(run, h, P(+swatches[blue].getAttribute('x') + cell / 2, +swatches[blue].getAttribute('y') + cell / 2), 700);
-      swatches[blue].setAttribute('class', 'tb-swatch tb-swatch-on');
-      await run.pause(400);
+      await glide(run, h, centreOf(pal.swatches[blue]), 600);
+      pal.swatches[blue].setAttribute('class', 'tb-swatch tb-swatch-on');
+      await run.pause(300);
       pal.g.remove();
       h.colour = PALETTE[blue];
       h.tb.set({ colour: h.colour });
       h.say(`Picked ${h.colour}. Shapes and text take the pen colour too.`);
-      await drawStroke(run, h, curve(P(200, 200), P(260, 170), P(340, 230), P(420, 200), 30, 1), { colour: h.colour, ms: 700 });
+      tagMark(await drawStroke(run, h, curve(P(200, 200), P(260, 170), P(340, 230), P(420, 200), 30, 1), { colour: h.colour, ms: 700 }), `a ${h.colour} stroke of ${h.width} px`);
       await run.pause(400);
+
+      await pick(run, h, 'width');
       h.say('The width button opens a slider, 1 to 40, with a preview dot in the colour.');
       const wp = popup(h, h.tb.centre('width').x, 200, 36);
       const track = svg('line', { class: 'tb-track', x1: wp.x + 40, y1: wp.y + 18, x2: wp.x + 160, y2: wp.y + 18 });
@@ -1483,74 +1510,143 @@
       wp.g.remove();
       h.tb.set({ width: h.width });
       h.say(`Width ${h.width}.`);
-      await drawStroke(run, h, curve(P(200, 262), P(260, 232), P(340, 292), P(420, 262), 30, 1), { colour: h.colour, width: h.width, ms: 700 });
+      tagMark(await drawStroke(run, h, curve(P(200, 262), P(260, 232), P(340, 292), P(420, 262), 30, 1), { colour: h.colour, width: h.width, ms: 700 }), `a ${h.colour} stroke of ${h.width} px`);
       await run.pause(400);
-      h.say('Custom: any colour from a picker, or a hex value typed in.');
-      const custom = '#5A2D82';
-      const cp = popup(h, h.tb.centre('colour').x, 150, 60);
-      const field = svg('rect', { class: 'tb-field', x: cp.x + 10, y: cp.y + 10, width: 130, height: 20, rx: 4 });
-      const hex = svg('text', { class: 'tb-text', x: cp.x + 18, y: cp.y + 24 });
-      cp.g.append(field, hex, svg('rect', { class: 'tb-textbutton', x: cp.x + 10, y: cp.y + 36, width: 60, height: 16, rx: 4 }));
-      await run.tween(700, t => { hex.textContent = custom.slice(0, Math.round(t * custom.length)); }, linear);
-      await run.pause(400);
-      cp.g.remove();
-      h.colour = custom;
-      h.tb.set({ colour: custom });
-      h.sample = await drawStroke(run, h, curve(P(200, 324), P(260, 294), P(340, 354), P(420, 324), 30, 1), { colour: custom, width: h.width, ms: 700 });
-      h.range.value = String(h.width); h.out.textContent = String(h.width);
+
+      /* A colour outside the palette, at 3:1 or more against the stand-in's background and panel in both schemes
+         (WCAG 1.4.11), as the palette blue is: hue 293 degrees, saturation 62 percent, value 82 percent. */
+      const custom = { hex: '#C04FD0', hue: 293, s: 0.62, v: 0.82 };
+      pal = await openPalette();
+      await glide(run, h, centreOf(pal.custom), 500);
       await run.pause(200);
-      h.end(`Three strokes: the palette blue, the same at width ${h.width}, and a custom colour. The palette and the slider below recolour and resize the last one.`);
+      pal.g.remove();
+      h.say('Custom opens a picker with a hex field: any colour, picked or typed in.');
+      const cp = popup(h, h.tb.centre('colour').x, 150, 132);
+      const sq = { x: cp.x + 10, y: cp.y + 10, w: 104, h: 64 };
+      const field = { x: cp.x + 10, y: cp.y + 82 };
+      const hex = svg('text', { class: 'tb-text', x: field.x + 8, y: field.y + 14 });
+      const ok = svg('rect', { class: 'tb-textbutton', x: cp.x + 10, y: cp.y + 108, width: 60, height: 16, rx: 4 });
+      cp.g.append(
+        svg('rect', { x: sq.x, y: sq.y, width: sq.w, height: sq.h, rx: 3, fill: `hsl(${custom.hue}, 100%, 50%)` }),
+        svg('rect', { x: sq.x, y: sq.y, width: sq.w, height: sq.h, rx: 3, fill: 'url(#picker-white)' }),
+        svg('rect', { x: sq.x, y: sq.y, width: sq.w, height: sq.h, rx: 3, fill: 'url(#picker-black)' }),
+        svg('rect', { x: cp.x + 124, y: sq.y, width: 16, height: sq.h, rx: 3, fill: 'url(#picker-hue)' }),
+        svg('rect', { x: cp.x + 122, y: round(sq.y + (custom.hue / 360) * sq.h - 1.5), width: 20, height: 3, rx: 1.5, fill: '#FFFFFF', stroke: '#000000', 'stroke-width': 0.75 }),
+        svg('rect', { class: 'tb-field', x: field.x, y: field.y, width: 130, height: 20, rx: 4 }), hex, ok);
+      const spot = P(round(sq.x + custom.s * sq.w), round(sq.y + (1 - custom.v) * sq.h));
+      await glide(run, h, spot, 600);
+      cp.g.append(svg('circle', { cx: spot.x, cy: spot.y, r: 4, fill: 'none', stroke: '#FFFFFF', 'stroke-width': 2 }));
+      hex.textContent = custom.hex;
+      await run.pause(600);
+      await glide(run, h, centreOf(ok), 400);
+      await run.pause(200);
+      cp.g.remove();
+      h.colour = custom.hex;
+      h.tb.set({ colour: h.colour });
+      h.say(`${h.colour}. The palette keeps it with the recent custom colours.`);
+      tagMark(await drawStroke(run, h, curve(P(200, 324), P(260, 294), P(340, 354), P(420, 324), 30, 1), { colour: h.colour, width: h.width, ms: 700 }), `a ${h.colour} stroke of ${h.width} px`);
+      showPen(h);
+      await run.pause(200);
+      h.end(`Three strokes: the palette blue at 4 and at ${h.width} px, then a custom colour. The palette and the slider below set the pen for a sample stroke.`, marksAlt(h));
     },
   };
 
-  /* 9. The toolbar (spec 6.9). */
+  /* The pen on the toolbar's colour and width buttons and in the controls below the stage. */
+  function showPen(h) {
+    h.tb.set({ colour: h.colour, width: h.width });
+    h.range.value = String(h.width);
+    h.out.textContent = String(h.width);
+    h.swatches.forEach((b, i) => b.setAttribute('aria-pressed', String(PALETTE[i] === h.colour)));
+  }
+
+  /* A control of the colour demonstration: it sets the pen and draws a sample stroke with it, in the empty space right
+     of the panel, in place of the last sample. */
+  async function setPen(h, changes) {
+    await stop(h);
+    Object.assign(h, changes);
+    showPen(h);
+    if (h.sample) h.sample.remove();
+    h.sample = tagMark(svg('path', Object.assign(inkAttrs({ colour: h.colour, width: h.width }), { d: pathOf(smooth(curve(P(494, 262), P(530, 236), P(578, 288), P(614, 258), 20, 1))) })), `a ${h.colour} sample stroke of ${h.width} px`);
+    h.sc.marks.append(h.sample);
+    h.end(`The pen: ${h.colour}, ${h.width} px. The sample stroke shows it; strokes already drawn keep theirs.`, marksAlt(h));
+  }
+
+  /* 9. The toolbar (spec 6.9). The vertical toolbar stands at the right edge, where its two columns leave the
+     "Demonstration" label free. */
+  const TOOLBAR_RIGHT = { x: 616, y: 8 };
+  const VERTICAL_LINE = 'Vertical. On this small screen it wraps into a second column, as the build\'s does on a monitor too short for it.';
+  const AUTO_LINE = 'Auto follows the Windows app theme. Here it follows your browser.';
+
   const toolbarDemo = {
     build(card, mount) {
       const h = stage(card, mount, { alt: 'A stand-in screen with the toolbar. The demonstration shows it horizontal, vertical, collapsed and hidden, in the light, dark and auto themes.' });
       h.sc = screen(h.svg, 'toolbar');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
       h.tb = toolbar(h, { draw: true, y: 8 });
       addPointer(h, P(400, 260));
       h.buttons = {};
-      const place = async (name, changes, text) => { await stop(h); h.tb.set(changes); h.say(text); shown(h); };
-      const shapes = [
-        ['horizontal', 'Horizontal', { vertical: false, collapsed: false, hidden: false, x: 320, y: 8 }, 'Horizontal, at the top centre of the monitor.'],
-        ['vertical', 'Vertical', { vertical: true, collapsed: false, hidden: false, x: 40, y: 50 }, 'Vertical.'],
-        ['collapsed', 'Collapsed', { collapsed: true, hidden: false }, 'Collapsed to its main icon. A click expands it; a drag moves it.'],
-        ['hidden', 'Hidden', { hidden: true }, 'Hidden, in ghost mode. A click on the tray icon brings it back.'],
-      ];
-      h.controls.append(group('Toolbar', ...shapes.map(([key, label, changes, text]) => {
-        const b = button(label, () => place(key, changes, text), { 'aria-pressed': 'false' });
-        h.buttons[key] = b;
-        return b;
-      })));
-      h.controls.append(group('Theme', ...[['light', 'Light', 'Light theme.'], ['dark', 'Dark', 'Dark theme.'], ['auto', 'Auto', 'Auto follows the Windows app theme. Here it follows your browser.']].map(([key, label, text]) => {
-        const b = button(label, () => place(key, { theme: key }, text), { 'aria-pressed': 'false' });
-        h.buttons[key] = b;
-        return b;
-      })));
+      const place = async (changes, text) => { await stop(h); h.tb.set(changes); shown(h); h.end(text, toolbarAlt(h)); };
+      const toggles = (label, items) => group(label, ...items.map(([key, name, changes, text]) => {
+        h.buttons[key] = button(name, () => place(changes, text), { 'aria-pressed': 'false' });
+        return h.buttons[key];
+      }));
+      h.controls.append(
+        toggles('Toolbar', [
+          ['horizontal', 'Horizontal', { vertical: false, collapsed: false, hidden: false, x: 320, y: 8 }, 'Horizontal, at the top centre of the monitor.'],
+          ['vertical', 'Vertical', Object.assign({ vertical: true, collapsed: false, hidden: false }, TOOLBAR_RIGHT), VERTICAL_LINE],
+          ['collapsed', 'Collapsed', { collapsed: true, hidden: false }, 'Collapsed to its main icon. A click expands it; a drag moves it.'],
+          ['hidden', 'Hidden', { hidden: true }, 'Hidden, in ghost mode. A click on the tray icon brings it back.'],
+        ]),
+        toggles('Theme', [
+          ['light', 'Light', { theme: 'light' }, 'Light theme.'],
+          ['dark', 'Dark', { theme: 'dark' }, 'Dark theme.'],
+          ['auto', 'Auto', { theme: 'auto' }, AUTO_LINE],
+        ]));
       return h;
     },
     reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ vertical: false, collapsed: false, hidden: false, theme: 'auto', draw: true, x: 320, y: 8 }); movePointer(h, P(400, 260)); shown(h); },
     async play(run, h) {
-      const step = async (changes, text, ms) => { h.tb.set(changes); shown(h); h.say(text); await run.pause(ms); };
-      await step({}, 'Horizontal, at the top centre of the primary monitor. In draw mode its border glows.', 1400);
-      await step({ vertical: true, x: 40, y: 50 }, 'Vertical.', 1200);
-      await step({ collapsed: true }, 'Collapsed to its main icon. A click expands it; a drag moves it.', 1200);
-      await step({ hidden: true }, 'Hidden, in ghost mode. A click on the tray icon brings it back.', 1200);
-      await step({ hidden: false, collapsed: false, vertical: false, x: 320, y: 8 }, 'Back, where you left it.', 1000);
-      await step({ theme: 'light' }, 'Light theme.', 1000);
-      await step({ theme: 'dark' }, 'Dark theme.', 1000);
-      await step({ theme: 'auto' }, 'Auto follows the Windows app theme. Here it follows your browser.', 600);
-      h.end('The toolbar: horizontal, vertical, collapsed or hidden; light, dark or auto. It remembers where you leave it. The buttons below change it.');
+      const step = async (text, ms) => { shown(h); h.say(text); await run.pause(ms); };
+      await step('Horizontal, at the top centre of the primary monitor. In draw mode its border glows.', 1400);
+      await pick(run, h, 'menu', Object.assign({ vertical: true }, TOOLBAR_RIGHT));
+      await step(`${VERTICAL_LINE} Orientation is in its menu.`, 2200);
+      await pick(run, h, 'main', { collapsed: true });
+      await step('A click on its main icon collapses it to the icon.', 1200);
+      h.tb.set({ hidden: true });
+      await step('Ghost mode, in the tray menu, hides it.', 1200);
+      h.tb.set({ hidden: false });
+      await step('A click on the tray icon brings it back, where it was.', 1200);
+      await pick(run, h, 'main', { collapsed: false });
+      await step('A click on the main icon expands it again.', 1000);
+      await pick(run, h, 'menu', { vertical: false, x: 320, y: 8 });
+      await step('Horizontal again, from its menu.', 1000);
+      /* A drag on the main icon, into the gap between the lines and the panel of the stand-in. */
+      await pick(run, h, 'main');
+      h.say('A drag on the main icon moves it. It remembers where you leave it.');
+      await run.tween(800, t => { h.tb.set({ y: round(lerp(8, 164, t)) }); movePointer(h, h.tb.centre('main')); });
+      await run.pause(1000);
+      await pick(run, h, 'menu', { theme: 'light' });
+      await step('Light theme, from its menu.', 1000);
+      h.tb.set({ theme: 'dark' });
+      await step('Dark theme.', 1000);
+      h.tb.set({ theme: 'auto' });
+      await step(AUTO_LINE, 600);
+      h.end('Horizontal or vertical, collapsed or hidden; light, dark or auto. The buttons below change it. The stand-in toolbar is larger than a real one, with icons drawn for this page.', toolbarAlt(h));
     },
   };
 
+  /* The toggles below the stage show the toolbar's shape and theme. */
   function shown(h) {
     const s = h.tb.state;
     const shape = s.hidden ? 'hidden' : s.collapsed ? 'collapsed' : s.vertical ? 'vertical' : 'horizontal';
     for (const [key, b] of Object.entries(h.buttons)) b.setAttribute('aria-pressed', String(key === shape || key === s.theme));
+  }
+
+  function toolbarAlt(h) {
+    const s = h.tb.state;
+    if (s.hidden) return 'A stand-in screen. The toolbar is hidden, in ghost mode.';
+    const shape = s.collapsed ? 'collapsed to its main icon' : s.vertical ? 'vertical, in two columns at the right edge' : s.y > 40 ? 'horizontal, moved down from the top' : 'horizontal, at the top centre';
+    return `A stand-in screen with the toolbar ${shape}, in the ${s.theme} theme, its border glowing for draw mode.`;
   }
 
   /* 10 and 11. The trace (planned) and two authors (phase 2). Each mark is drawn on the stand-in screen first, and then
