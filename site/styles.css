@@ -492,7 +492,7 @@ kbd {
    band needs, so a card may keep a little space but does not grow. When the lines or controls of a demonstration
    change, measure again. Only with scripting on: without the script a card stands as text. */
 .feature-demo {
-  container-type: inline-size;
+  container: demo / inline-size;
   --demo-lines: 3;
   --demo-controls: 2rem;
   --demo-thumb: 0rem;
@@ -503,7 +503,7 @@ kbd {
 [data-demo="toolbar"] .feature-demo { --demo-controls: 7rem; }
 [data-demo="capture"] .feature-demo { --demo-thumb: 7.5rem; }
 
-@container (max-width: 29.99rem) {
+@container demo (max-width: 29.99rem) {
   .feature-demo::after,
   .demo { --demo-lines: 4; }
   [data-demo="fade"] .feature-demo::after,
@@ -516,7 +516,7 @@ kbd {
   [data-demo="capture"] .demo { --demo-thumb: 9.75rem; }
 }
 
-@container (max-width: 20.49rem) {
+@container demo (max-width: 20.49rem) {
   .feature-demo::after,
   .demo { --demo-lines: 6; }
   [data-demo="draw"] .feature-demo::after,
@@ -655,7 +655,7 @@ kbd {
 /* The play control keeps the width of its longest label: the labels share one grid cell and the copy is hidden. */
 .demo-play {
   display: inline-grid;
-  justify-items: center;
+  place-items: center;
 }
 
 .demo-play > span {
