@@ -6,8 +6,9 @@
    of 2026-09-15 in docs/specs/ of the Showtrace repository) and its README; the numbers below carry the section they
    come from.
 
-   Motion: each demonstration plays once when it comes into view and again on "Play again"; nothing loops; under
-   prefers-reduced-motion only the end state shows; when the tab is hidden a play stops at its end state. The signature
+   Motion: each demonstration plays once when it comes into view and again on its play control; Stop ends a play at
+   its end state; nothing loops. Under prefers-reduced-motion only end states show, also when the setting changes while
+   the page is open; a play stops at its end state when the tab is hidden or its stage leaves the view. The signature
    stroke (brand.md, section 6.6) is CSS; the script only starts it on a step being added to the trace.
 
    Nothing leaves the browser: no request, no storage, no cookie. The sandbox's PNG is the visitor's own download. */
@@ -17,8 +18,10 @@
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const CANCEL = Symbol('cancelled');
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const darkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+  /* A media query a browser cannot answer never matches and never changes. */
+  const media = query => (window.matchMedia ? window.matchMedia(query) : { matches: false, addEventListener() {} });
+  const reducedMotion = media('(prefers-reduced-motion: reduce)');
+  const darkScheme = media('(prefers-color-scheme: dark)');
 
   /* The build's ink and sizes (spec 5.4, 5.6, 6.4, 6.6, 6.7, 7.1). The brand teal is never ink (brand.md, 6.2). */
   const INK = { pen: '#FF3B30', highlighter: '#FFCC00', laser: '#FF1E1E', halo: '#FFCC00' };
@@ -65,8 +68,10 @@
     return b;
   }
 
+  /* A labelled group of controls. The group carries the name; the visible label is hidden from a screen reader, so
+     that the name is read once. */
   function group(label, ...children) {
-    return el('div', { class: 'control-group', role: 'group', 'aria-label': label }, el('span', { class: 'control-label', text: label }), ...children);
+    return el('div', { class: 'control-group', role: 'group', 'aria-label': label }, el('span', { class: 'control-label', text: label, 'aria-hidden': 'true' }), ...children);
   }
 
   const round = v => Math.round(v * 10) / 10;
@@ -78,57 +83,62 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   const P = (x, y) => ({ x, y });
 
-  /* One play of a demonstration. An instant run shows the end state at once (reduced motion, a hidden tab). */
+  /* One play of a demonstration. With motion, every wait is a frame loop or a timer. An instant run shows the end
+     state at once (reduced motion, a hidden tab, Stop): it asks for no frame and sets no timer, so the whole play
+     ends before the browser paints. cancel() stops every pending wait and rejects it with CANCEL. */
   class Run {
     constructor(instant) {
       this.instant = instant;
       this.cancelled = false;
-      this.frame = 0;
-      this.timer = 0;
-      this.reject = null;
+      this.waits = new Set();
     }
 
     cancel() {
       this.cancelled = true;
-      if (this.frame) cancelAnimationFrame(this.frame);
-      if (this.timer) clearTimeout(this.timer);
-      const reject = this.reject;
-      this.reject = null;
-      if (reject) reject(CANCEL);
+      for (const wait of [...this.waits]) { wait.stop(); wait.settle(CANCEL); }
     }
 
-    /* Calls fn(progress) every frame for ms milliseconds, progress eased from 0 to 1. */
+    /* Calls fn(progress) every frame for ms milliseconds, progress eased from 0 to 1. If fn throws, the play ends
+       with that error instead of waiting for ever. */
     tween(ms, fn, ease = easeInOut) {
       if (this.cancelled) return Promise.reject(CANCEL);
       if (this.instant || ms <= 0) { fn(1); return Promise.resolve(); }
-      return new Promise((resolve, reject) => {
-        this.reject = reject;
-        const start = performance.now();
-        const step = now => {
-          const t = Math.min(1, (now - start) / ms);
-          fn(ease(t));
-          if (t < 1) { this.frame = requestAnimationFrame(step); return; }
-          this.frame = 0;
-          this.reject = null;
-          resolve();
-        };
-        this.frame = requestAnimationFrame(step);
+      return this.wait((done, fail) => {
+        const begin = performance.now();
+        let frame = requestAnimationFrame(function step(now) {
+          const t = Math.max(0, Math.min(1, (now - begin) / ms));
+          try { fn(ease(t)); } catch (error) { fail(error); return; }
+          if (t < 1) frame = requestAnimationFrame(step); else done();
+        });
+        return () => cancelAnimationFrame(frame);
       });
     }
 
-    /* A pause in the choreography. Skipped in an instant run. */
+    /* A pause in the choreography: rhythm between steps. */
     pause(ms) {
       if (this.cancelled) return Promise.reject(CANCEL);
-      if (this.instant) return Promise.resolve();
-      return this.hold(ms);
+      if (this.instant || ms <= 0) return Promise.resolve();
+      return this.wait(done => { const timer = setTimeout(done, ms); return () => clearTimeout(timer); });
     }
 
-    /* Time the build itself takes, such as the wait before fading ink goes. Kept in an instant run. */
+    /* Time the build itself takes, such as the wait before fading ink goes (spec 5.4). It waits like a pause, and an
+       instant run skips it too: under reduced motion only the end state shows. */
     hold(ms) {
-      if (this.cancelled) return Promise.reject(CANCEL);
+      return this.pause(ms);
+    }
+
+    /* One pending wait. begin(done, fail) starts it and returns how to stop it; a run may have several at once. */
+    wait(begin) {
       return new Promise((resolve, reject) => {
-        this.reject = reject;
-        this.timer = setTimeout(() => { this.timer = 0; this.reject = null; resolve(); }, ms);
+        const wait = {
+          stop: () => {},
+          settle: error => {
+            if (!this.waits.delete(wait)) return;
+            if (error === undefined) resolve(); else reject(error);
+          },
+        };
+        this.waits.add(wait);
+        wait.stop = begin(() => wait.settle(), error => wait.settle(error));
       });
     }
   }
@@ -257,19 +267,52 @@
 
   /* ---------- The stage of a demonstration ---------- */
 
+  const START_LINE = 'Plays when it comes into view.';
+
+  /* The frame of one demonstration: a figure with the stage (the SVG of the stand-in screen and the "Demonstration"
+     label), the state line, the controls and a live region. The contract above the demonstrations says what h
+     carries; h.frame is the frame's own and no demonstration reads it. */
   function stage(card, mount, opts) {
-    const fig = el('figure', { class: 'demo' });
-    const stageBox = el('div', { class: 'demo-stage' });
     const root = svg('svg', { viewBox: '0 0 640 400', role: 'img', 'aria-label': opts.alt, focusable: 'false' });
-    stageBox.append(root, el('span', { class: 'demo-label', text: opts.label || 'Demonstration' }));
-    const state = el('p', { class: 'demo-state', text: 'Plays when it comes into view.' });
+    const stageBox = el('div', { class: 'demo-stage' }, root, el('span', { class: 'demo-label', text: opts.label || 'Demonstration' }));
+    const line = el('span', { class: 'demo-state-line', text: START_LINE });
+    const fits = el('span', { class: 'demo-state-fits', 'aria-hidden': 'true' });
+    const state = el('p', { class: 'demo-state' }, line, fits);
     const controls = el('div', { class: 'demo-controls' });
-    fig.append(stageBox, state, controls);
-    mount.append(fig);
-    const h = { card, fig, box: stageBox, svg: root, state, controls, extras: [], at: P(320, 200) };
-    h.say = (...parts) => { state.replaceChildren(...parts.map(part => (typeof part === 'string' ? part : el('kbd', { text: part.key })))); };
-    h.end = text => { h.say(text); root.setAttribute('aria-label', text); };
+    const live = el('div', { class: 'demo-live', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' });
+    mount.append(el('figure', { class: 'demo' }, stageBox, state, controls, live));
+    const h = { card, box: stageBox, svg: root, state, controls, extras: [], at: P(320, 200), run: null };
+    h.frame = { line, fits, live, lines: null, ended: '', played: false };
+    h.say = (...parts) => say(h, parts);
+    h.end = (text, alt = text) => end(h, text, alt);
     return h;
+  }
+
+  /* The parts of a line: strings, and { key: 'Escape' } for a key. */
+  const nodesOf = parts => parts.map(part => (typeof part === 'string' ? part : el('kbd', { text: part.key })));
+  const textOf = parts => parts.map(part => (typeof part === 'string' ? part : part.key)).join('');
+
+  /* A line in the state line. During a play it is shown and not announced: the live region says only that a play
+     starts and how it ends. Outside a play only a control says something, so then the line is announced too. In the
+     rehearsal of a play the line is only kept. */
+  function say(h, parts) {
+    if (h.frame.lines) { h.frame.lines.push(parts); return; }
+    h.frame.line.replaceChildren(...nodesOf(parts));
+    if (!h.run) speak(h, textOf(parts));
+  }
+
+  /* The end line. It is shown, and alt becomes the text alternative of the stand-in screen. */
+  function end(h, text, alt) {
+    if (h.frame.lines) { h.frame.lines.push([text]); return; }
+    h.frame.line.replaceChildren(text);
+    h.svg.setAttribute('aria-label', alt);
+    h.frame.ended = text;
+    if (!h.run) speak(h, text);
+  }
+
+  /* The live region is polite: a screen reader says it when the visitor pauses, without moving focus (WCAG 4.1.3). */
+  function speak(h, text) {
+    h.frame.live.textContent = text;
   }
 
   /* Things a play adds outside the document: the laser, the halo, the lens, popups, the dim. Reset removes them. */
@@ -609,6 +652,62 @@
 
   /* ---------- The demonstrations ---------- */
 
+  /* The contract between the frame and a demonstration.
+
+     A demonstration is an object { build, reset, play } in DEMOS, under the name in its card's data-demo.
+
+     build(card, mount) runs once, at load. It calls stage(card, mount, { alt, label }) and returns the h that stage
+     gives, with what the demonstration adds: the stand-in screen, the document, the toolbar, the pointer, and its own
+     controls appended to h.controls. It plays nothing. From stage, h carries:
+       h.card       the feature card the demonstration belongs to.
+       h.svg        the stand-in screen, viewBox 0 0 640 400, role img. Its text alternative is opts.alt until a play
+                    ends, then the alt of h.end.
+       h.state      the state line, a p. Nothing goes in it; the capture demonstration puts its thumbnail after it.
+       h.controls   the controls. The frame puts the play control first.
+       h.say(...parts)          shows a line in the state line. Parts are strings, and { key: 'Escape' } for a key.
+       h.end(text, alt = text)  shows the end line; alt becomes the text alternative of the stand-in screen.
+       h.run        the run in progress, or null. Read it; never set or cancel it.
+       h.box and h.frame belong to the frame, and no demonstration touches them.
+
+     reset(h) brings the picture back to its start state, whatever a play or a control left. The frame calls it before
+     every play and around every rehearsal, so it is complete, quick and safe to repeat.
+
+     play(run, h) is async. It takes the picture from the start state to the end state, says what happens with h.say
+     and ends with h.end. Every wait goes through the run: run.tween(ms, fn, ease) calls fn with the eased progress
+     every frame, run.pause(ms) is rhythm between steps, and run.hold(ms) is time the build itself takes (spec 5.4).
+     No setTimeout, requestAnimationFrame or listener of its own. The frame cancels a play by rejecting its pending
+     waits with CANCEL, so a play lets every rejection pass: no try/catch around an await.
+
+     An instant run (run.instant) shows the end state at once: tween calls fn(1), pause and hold resolve at once, and
+     the play ends before the browser paints. The frame uses one under reduced motion, on a hidden tab, for Stop and
+     stop(h), when the stage leaves the view, and for the rehearsal. A play reaches the same end state and says the
+     same lines in an instant run as with motion.
+
+     The rehearsal. At load and before each play the frame plays the demonstration as an instant run, from reset to
+     its end, and resets it again; meanwhile h.say and h.end only collect the lines. The state line then keeps the
+     height of the longest, so that the card does not grow while the play runs. A play thus runs at least twice for
+     every time it is seen, and everything it changes, reset changes back.
+
+     Starting and stopping. The frame starts a play once when 35 percent of its stage is in view, and on the play
+     control: Play, Stop while a play moves, Play again after. It stops a play at its end state on Stop, when the
+     stage leaves the view, when the tab is hidden and when reduced motion is turned on. A control of a demonstration
+     that changes the picture first awaits stop(h): a play in progress jumps to its end state, so the control changes a
+     known picture. It then changes the picture at once and says what it did with h.say. A control that plays the
+     demonstration again calls start(h).
+
+     The live region announces that a play with motion starts ("<card title>: the demonstration is playing.") and how
+     it ends ("... has ended." or, after Stop, "... has stopped.", then the end line). The lines in between are shown
+     and not announced. What h.say or h.end says outside a play, after a control, is announced as it is. A stop the
+     visitor did not ask for is silent.
+
+     Space. Before the script runs, styles.css reserves the stage, the state line (3 lines for a stage of 30 rem and
+     wider, 4 below that, 6 below 20.5 rem) and one row of controls; a demonstration with more controls, and the
+     thumbnail, have their own heights there. A longer line or more controls make the card grow when it mounts, so
+     measure again after changing them.
+
+     Errors. A build, reset or play that throws takes its demonstration out: its card keeps its text, the other
+     demonstrations go on, and the error is logged once. */
+
   /* 1. Draw on the live screen. */
   const drawDemo = {
     build(card, mount) {
@@ -778,7 +877,7 @@
       h.tb = toolbar(h, { draw: true });
       addPointer(h, P(400, 240));
       h.buttons = {};
-      const choose = kind => { h.run?.cancel(); h.run = null; setBoard(new Run(true), h, kind); h.say(kind ? `${BOARDS[kind].label}. Draw mode is on; the screen marks wait underneath.` : 'Board closed: the screen marks are back.'); };
+      const choose = async kind => { await stop(h); setBoard(new Run(true), h, kind); h.say(kind ? `${BOARDS[kind].label}. Draw mode is on; the screen marks wait underneath.` : 'Board closed: the screen marks are back.'); };
       h.controls.append(group('Board',
         ...[['', 'None'], ...Object.entries(BOARDS).map(([k, b]) => [k, b.label])].map(([kind, label]) => {
           const b = button(label, () => choose(kind || null), { 'aria-pressed': 'false' });
@@ -854,8 +953,8 @@
       addPointer(h, P(160, 60));
       h.thumb = el('div', { class: 'demo-thumb', hidden: '' });
       h.state.after(h.thumb);
-      h.controls.append(button('Full screen', () => {
-        h.run?.cancel(); h.run = null;
+      h.controls.append(button('Full screen', async () => {
+        await stop(h);
         showShot(h, { x: 0, y: 0, w: 640, h: 400 });
         h.say('Full screen: the monitor under the pointer, with the marks, without the toolbar and the pointer.');
       }));
@@ -1077,7 +1176,7 @@
       h.tb = toolbar(h, { draw: true, scale: 0.85, y: 8 });
       addPointer(h, P(400, 260));
       h.buttons = {};
-      const place = (name, changes, text) => { h.run?.cancel(); h.run = null; h.tb.set(changes); h.say(text); shown(h); };
+      const place = async (name, changes, text) => { await stop(h); h.tb.set(changes); h.say(text); shown(h); };
       const shapes = [
         ['horizontal', 'Horizontal', { vertical: false, collapsed: false, hidden: false, x: 320, y: 8 }, 'Horizontal, at the top centre of the monitor.'],
         ['vertical', 'Vertical', { vertical: true, collapsed: false, hidden: false, x: 40, y: 50 }, 'Vertical.'],
@@ -1178,50 +1277,150 @@
     monitors: monitorsDemo, colour: colourDemo, toolbar: toolbarDemo, trace: traceDemo('trace'), authors: traceDemo('authors'),
   };
 
-  /* ---------- Mounting, playing once in view, stopping when hidden ---------- */
+  /* ---------- Mounting, playing once in view, stopping ---------- */
 
   const mounted = [];
+  const failed = new WeakSet();
+  const moving = h => Boolean(h.run && !h.run.instant);
 
-  function start(h, instant = false) {
-    if (h.run) h.run.cancel();
-    h.demo.reset(h);
-    const run = new Run(instant || reducedMotion.matches || document.hidden);
-    h.run = run;
-    h.demo.play(run, h)
-      .catch(error => { if (error !== CANCEL) console.error(error); })
-      .finally(() => { if (h.run === run) h.run = null; });
+  /* The play control: "Play" before any play, "Stop" while one moves, "Play again" after. One button, so that focus
+     stays on it after a click; a hidden copy of the longest label keeps its width, so that the controls next to it
+     do not move when the label changes. */
+  function playControl(h) {
+    const label = el('span', { text: 'Play' });
+    const b = button('', () => (moving(h) ? stop(h, { stopped: true }) : start(h)), { class: 'btn demo-play' });
+    b.append(label, el('span', { class: 'demo-play-fit', 'aria-hidden': 'true', text: 'Play again' }));
+    h.frame.control = label;
+    return b;
   }
+
+  function showControl(h) {
+    h.frame.control.textContent = moving(h) ? 'Stop' : h.frame.played ? 'Play again' : 'Play';
+  }
+
+  /* Plays a demonstration from its start state: with motion when the visitor allows motion and the tab is shown,
+     otherwise as an instant run that shows the end state at once. how.auto: the frame started it, not the visitor;
+     how.instant: show the end state; how.quiet: announce nothing; how.stopped: announce the end as a stop.
+     Resolves when the play has ended or was cancelled. */
+  function start(h, how = {}) {
+    const f = h.frame;
+    if (failed.has(h.card)) return Promise.resolve();
+    halt(h);
+    const run = new Run(Boolean(how.instant) || reducedMotion.matches || document.hidden);
+    const speaks = !how.quiet && (!run.instant || !how.auto);
+    h.run = run;
+    f.played = true;
+    f.ended = '';
+    showControl(h);
+    /* A quiet run empties the live region, so that a screen reader does not find "is playing" in it afterwards. */
+    if (!speaks) speak(h, '');
+    else if (!run.instant) speak(h, `${f.name}: the demonstration is playing.`);
+    return (async () => {
+      await rehearse(h);
+      await f.demo.play(run, h);
+      if (speaks) speak(h, `${f.name}: the demonstration has ${how.stopped ? 'stopped' : 'ended'}. ${f.ended}`);
+    })()
+      .catch(error => { if (error !== CANCEL) fail(h.card, error, h); })
+      .finally(() => { if (h.run === run) { h.run = null; showControl(h); } });
+  }
+
+  /* Stops a play in progress at its end state and resolves once the end state shows. A demonstration's own control
+     awaits it before it changes the picture, so that it changes a known picture. Quiet, except for Stop. */
+  function stop(h, how = {}) {
+    if (!h.run) return Promise.resolve();
+    return start(h, Object.assign({ instant: true, quiet: !how.stopped }, how));
+  }
+
+  /* Cancels a play where it is, before a new one starts. */
+  function halt(h) {
+    const run = h.run;
+    h.run = null;
+    if (run) run.cancel();
+  }
+
+  /* The rehearsal: the play once as an instant run, from the start state back to the start state, keeping the lines
+     it says. The state line then holds them all, hidden, in one grid cell, so that it takes the height of the
+     longest and the card does not grow or shrink while the play runs. An instant run ends before the browser
+     paints, so nobody sees the rehearsal. */
+  async function rehearse(h) {
+    const f = h.frame;
+    const lines = [];
+    f.lines = lines;
+    try {
+      f.demo.reset(h);
+      await f.demo.play(new Run(true), h);
+    } finally {
+      f.lines = null;
+    }
+    f.demo.reset(h);
+    const seen = new Set();
+    f.fits.replaceChildren();
+    for (const parts of [[START_LINE], ...lines]) {
+      const text = textOf(parts);
+      if (seen.has(text)) continue;
+      seen.add(text);
+      f.fits.append(el('span', null, ...nodesOf(parts)));
+    }
+  }
+
+  /* A play starts once, when this share of its stage is in view, and stops at its end state when the stage has left
+     the view, so that nothing moves where nobody looks. */
+  const IN_VIEW = 0.35;
 
   const observer = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
     for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
       const h = mounted.find(m => m.box === entry.target);
-      if (!h || h.played) continue;
-      h.played = true;
-      observer.unobserve(entry.target);
-      start(h);
+      if (!h) continue;
+      if (entry.isIntersecting && entry.intersectionRatio >= IN_VIEW - 0.01) { if (!h.frame.played) start(h, { auto: true }); }
+      else if (!entry.isIntersecting && moving(h)) stop(h);
     }
-  }, { threshold: 0.35 }) : null;
+  }, { threshold: [0, IN_VIEW] }) : null;
 
-  function mountAll() {
-    for (const card of document.querySelectorAll('[data-demo]')) {
-      const demo = DEMOS[card.dataset.demo];
-      const mount = card.querySelector('.feature-demo');
-      if (!demo || !mount) continue;
-      const h = demo.build(card, mount);
-      h.demo = demo;
-      h.run = null;
-      h.played = false;
-      h.controls.prepend(button('Play again', () => start(h)));
-      demo.reset(h);
-      mounted.push(h);
-      if (observer) observer.observe(h.box); else start(h, true);
+  /* Mounts the demonstration a card names into the card's .feature-demo. */
+  function mount(card) {
+    const demo = DEMOS[card.dataset.demo];
+    const slot = card.querySelector('.feature-demo');
+    if (!demo || !slot) return;
+    let h = null;
+    try {
+      h = demo.build(card, slot);
+      h.frame.demo = demo;
+      h.frame.name = card.querySelector('h3')?.textContent.trim() || 'Demonstration';
+      h.controls.prepend(playControl(h));
+    } catch (error) {
+      fail(card, error, h);
+      return;
     }
+    rehearse(h).then(() => {
+      mounted.push(h);
+      if (observer) observer.observe(h.box); else start(h, { auto: true });
+    }, error => fail(card, error, h));
   }
 
+  /* A demonstration whose build, reset or play throws is taken out: its card keeps its text, the other
+     demonstrations go on, and the error is logged once. */
+  function fail(card, error, h) {
+    if (failed.has(card)) return;
+    failed.add(card);
+    if (h) {
+      if (mounted.includes(h)) mounted.splice(mounted.indexOf(h), 1);
+      if (observer && h.box) observer.unobserve(h.box);
+      halt(h);
+    }
+    const slot = card.querySelector('.feature-demo');
+    slot.replaceChildren();
+    slot.hidden = true;
+    console.error(`Showtrace: the "${card.dataset.demo}" demonstration stopped with an error; its card shows its text only.`, error);
+  }
+
+  /* A hidden tab, or reduced motion turned on while the page is open, stops every play at its end state. */
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) return;
-    for (const h of mounted) if (h.run) { h.run.cancel(); start(h, true); }
+    for (const h of mounted) if (moving(h)) stop(h);
+  });
+  reducedMotion.addEventListener('change', () => {
+    if (!reducedMotion.matches) return;
+    for (const h of mounted) if (moving(h)) stop(h);
   });
 
   /* ---------- The sandbox: draw on the stand-in screen, save a PNG ---------- */
@@ -1453,9 +1652,16 @@
   /* ---------- Start ---------- */
 
   function init() {
-    mountAll();
+    for (const card of document.querySelectorAll('[data-demo]')) mount(card);
     const box = document.querySelector('[data-sandbox]');
-    if (box) sandbox(box);
+    if (!box) return;
+    const before = [...box.childNodes];
+    try {
+      sandbox(box);
+    } catch (error) {
+      for (const node of [...box.childNodes]) if (!before.includes(node)) node.remove();
+      console.error('Showtrace: the sandbox stopped with an error; its section shows its text only.', error);
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
