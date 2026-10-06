@@ -520,9 +520,14 @@ kbd {
   margin-bottom: 0.35em;
 }
 
+/* The headline and the subline of brand.md, section 3, each on its own line. */
 .tagline {
   font-size: clamp(1.25rem, 1.05rem + 1vw, 1.75rem);
   line-height: 1.3;
+}
+
+.tagline strong {
+  display: block;
 }
 
 /* Status words: today, planned, phase 2. The word carries the meaning; the shape of the border repeats it. */
@@ -572,10 +577,6 @@ kbd {
 }
 
 .feature-head {
-.tagline strong {
-  display: block;
-}
-
   display: flex;
   flex-wrap: wrap;
   align-items: center;
