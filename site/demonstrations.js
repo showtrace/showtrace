@@ -1436,7 +1436,7 @@
       /* A drag on the main icon, into the gap between the lines and the panel of the stand-in. */
       await pick(run, h, 'main');
       h.say('A drag on the main icon moves it. It remembers where you leave it.');
-      await run.tween(800, t => { h.tb.set({ y: round(lerp(8, 160, t)) }); movePointer(h, h.tb.centre('main')); });
+      await run.tween(800, t => { h.tb.set({ y: round(lerp(8, 164, t)) }); movePointer(h, h.tb.centre('main')); });
       await run.pause(1000);
       await pick(run, h, 'menu', { theme: 'light' });
       await step('Light theme, from its menu.', 1000);
