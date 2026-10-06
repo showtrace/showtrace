@@ -6,8 +6,9 @@
    of 2026-09-15 in docs/specs/ of the Showtrace repository) and its README; the numbers below carry the section they
    come from.
 
-   Motion: each demonstration plays once when it comes into view and again on "Play again"; nothing loops; under
-   prefers-reduced-motion only the end state shows; when the tab is hidden a play stops at its end state. The signature
+   Motion: each demonstration plays once when it comes into view and again on its play control; Stop ends a play at
+   its end state; nothing loops. Under prefers-reduced-motion only end states show, also when the setting changes while
+   the page is open; a play stops at its end state when the tab is hidden or its stage leaves the view. The signature
    stroke (brand.md, section 6.6) is CSS; the script only starts it on a step being added to the trace.
 
    Nothing leaves the browser: no request, no storage, no cookie. The sandbox's PNG is the visitor's own download. */
@@ -17,8 +18,10 @@
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const CANCEL = Symbol('cancelled');
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const darkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+  /* A media query a browser cannot answer never matches and never changes. */
+  const media = query => (window.matchMedia ? window.matchMedia(query) : { matches: false, addEventListener() {} });
+  const reducedMotion = media('(prefers-reduced-motion: reduce)');
+  const darkScheme = media('(prefers-color-scheme: dark)');
 
   /* The build's ink and sizes (spec 5.4, 5.6, 6.4, 6.6, 6.7, 7.1). The brand teal is never ink (brand.md, 6.2). */
   const INK = { pen: '#FF3B30', highlighter: '#FFCC00', laser: '#FF1E1E', halo: '#FFCC00' };
@@ -1247,7 +1250,9 @@
     f.played = true;
     f.ended = '';
     showControl(h);
-    if (speaks && !run.instant) speak(h, `${f.name}: the demonstration is playing.`);
+    /* A quiet run empties the live region, so that a screen reader does not find "is playing" in it afterwards. */
+    if (!speaks) speak(h, '');
+    else if (!run.instant) speak(h, `${f.name}: the demonstration is playing.`);
     return (async () => {
       f.demo.reset(h);
       await f.demo.play(run, h);
@@ -1271,15 +1276,18 @@
     if (run) run.cancel();
   }
 
+  /* A play starts once, when this share of its stage is in view, and stops at its end state when the stage has left
+     the view, so that nothing moves where nobody looks. */
+  const IN_VIEW = 0.35;
+
   const observer = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
     for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
       const h = mounted.find(m => m.box === entry.target);
-      if (!h || h.frame.played) continue;
-      observer.unobserve(entry.target);
-      start(h, { auto: true });
+      if (!h) continue;
+      if (entry.isIntersecting && entry.intersectionRatio >= IN_VIEW - 0.01) { if (!h.frame.played) start(h, { auto: true }); }
+      else if (!entry.isIntersecting && moving(h)) stop(h);
     }
-  }, { threshold: 0.35 }) : null;
+  }, { threshold: [0, IN_VIEW] }) : null;
 
   /* Mounts the demonstration a card names into the card's .feature-demo. */
   function mount(card) {
@@ -1317,8 +1325,13 @@
     console.error(`Showtrace: the "${card.dataset.demo}" demonstration stopped with an error; its card shows its text only.`, error);
   }
 
+  /* A hidden tab, or reduced motion turned on while the page is open, stops every play at its end state. */
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) return;
+    for (const h of mounted) if (moving(h)) stop(h);
+  });
+  reducedMotion.addEventListener('change', () => {
+    if (!reducedMotion.matches) return;
     for (const h of mounted) if (moving(h)) stop(h);
   });
 
