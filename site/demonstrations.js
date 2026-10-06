@@ -917,49 +917,78 @@
     },
   };
 
-  /* 2. Point: laser, halo, magnifier. */
+  /* A click on a button of the stand-in toolbar: the pointer goes to the button, and the toolbar changes as the click
+     changes it. The same approach in every demonstration of this group, so that the visitor sees where a change comes
+     from. */
+  async function tap(run, h, id, changes, ms = 500) {
+    await glide(run, h, h.tb.centre(id), ms);
+    await run.pause(150);
+    h.tb.set(changes);
+  }
+
+  /* A click on the stand-in application's button: it shows pressed for a moment. */
+  async function press(run, h) {
+    h.sc.button.classList.add('sc-pressed');
+    await run.pause(350);
+    h.sc.button.classList.remove('sc-pressed');
+  }
+
+  /* 2. Point: laser, halo, magnifier (spec 6.6, 6.7). */
   const pointDemo = {
     build(card, mount) {
       const h = stage(card, mount, { alt: 'A stand-in screen. The demonstration shows the laser pointer, the cursor halo and the magnifier lens.' });
       h.sc = screen(h.svg, 'point');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
-      h.tb = toolbar(h, { draw: true });
-      addPointer(h, P(200, 120));
+      h.tb = toolbar(h, { draw: false });
+      addPointer(h, P(330, 200));
       return h;
     },
     reset(h) {
       h.doc.reset(); clearExtras(h);
       h.halo = null; h.lens = null; h.lensLocked = false;
       h.pointer.removeAttribute('visibility');
-      h.tb.set({ active: null, on: {} });
-      movePointer(h, P(200, 120));
+      h.tb.set({ draw: false, active: null, on: {} });
+      movePointer(h, P(330, 200));
     },
     async play(run, h) {
-      h.tb.set({ active: 'laser' });
+      /* The laser button switches to draw mode; over the screen the laser hides the pointer (spec 6.4, 6.6). */
+      h.say('The laser button: draw mode, and the laser.');
+      await tap(run, h, 'laser', { draw: true, active: 'laser' });
       h.say('Laser: a red dot that hides the pointer, with a trail that fades in 1.5 s. It leaves no ink.');
-      await laser(run, h, curve(P(200, 120), P(430, 40), P(230, 330), P(470, 220), 60), 2200);
-      await run.pause(200);
-      h.tb.set({ active: null, on: { halo: 'tint' } });
-      h.extras.find(n => n.classList && n.classList.contains('laser'))?.remove();
+      /* The laser draws over the screen, not over the toolbar: it starts just below it. */
+      await glide(run, h, P(h.at.x, h.tb.bottom() + 10), 200);
+      const from = h.at;
+      const beam = await laser(run, h, curve(from, P(from.x - 40, 200), P(200, 330), P(470, 220), 60), 2200);
+      await run.pause(300);
+      /* Leaving draw mode drops the laser and brings the pointer back (spec 6.3, 6.6). */
+      h.say('Press ', { key: 'Escape' }, ': cursor mode. The dot is gone, the pointer is back, and nothing is left on the screen.');
+      beam.remove();
       h.pointer.removeAttribute('visibility');
+      h.tb.set({ draw: false, active: null });
+      await run.pause(700);
+      /* The halo is a toggle and shows in every mode (spec 6.6). */
+      h.say('The halo button: a yellow circle of 40 px around the pointer, in cursor mode as in draw mode. A recording shows it.');
+      await tap(run, h, 'halo', { on: { halo: 'tint' } });
       addHalo(h);
-      h.say('Halo: a 40 px circle around the pointer, in every mode, visible in a recording.');
-      await glide(run, h, P(540, 336), 900);
+      await glide(run, h, P(540, 300), 1000);
       await run.pause(400);
-      h.tb.set({ active: 'magnifier', on: { halo: 'tint' } });
+      /* The lens opens at 2x on the next pointer movement in draw mode and leaves the halo out (spec 6.7). */
+      h.say('The magnifier button: a lens over the pointer at 2x. It shows the screen without the halo.');
+      await tap(run, h, 'magnifier', { draw: true, active: 'magnifier', on: { halo: 'tint' } }, 700);
+      await glide(run, h, P(h.at.x, 130), 250);
       addLens(h);
-      h.say('Magnifier: a lens over the pointer at 2x. The wheel zooms from 1.5x to 8x in steps of 0.5x.');
       await glide(run, h, P(330, 236), 900);
       await run.pause(300);
-      h.say('Wheel: 4x.');
-      await run.tween(500, t => { h.zoom = 2 + Math.round(t * 4) * 0.5; h.lens.set(h.at.x, h.at.y, h.zoom); }, linear);
-      await run.pause(500);
-      h.say('Click: the lens stays where it is, showing that spot live, while the pointer moves on.');
+      /* 1.5x to 8x in steps of 0.5x (spec 6.7, 7.1). */
+      h.say('The wheel zooms from 1.5x to 8x in steps of 0.5x. Here: 4x.');
+      await run.tween(500, t => { h.zoom = LENS.start + Math.round(t * 4) * 0.5; h.lens.set(h.at.x, h.at.y, h.zoom); }, linear);
+      await run.pause(600);
+      h.say('Click: the lens stays where it is and shows that spot live, while the pointer moves on.');
       h.lensLocked = true;
-      await glide(run, h, P(250, 120), 900);
+      await glide(run, h, P(560, 120), 900);
       await run.pause(300);
-      h.end('Laser, halo and magnifier. The lens is locked at 4x; a click lets it go. The stand-in is not to scale: the real lens is 320 px.');
+      h.end('The laser left no ink. The halo is on, and the lens is locked at 4x until a click lets it go. Not to scale: the lens is 320 px in the build and 200 here, and the pointer is drawn a quarter larger.',
+        'A stand-in screen. The halo is on around the pointer, and a magnifier lens is locked at 4x over the lines of text. The laser left no ink.');
     },
   };
 
@@ -1199,12 +1228,6 @@
       h.end('Explain and operate, in turns: draw mode, Escape for the pointer, Ctrl+Alt to click through the marks for a moment.');
     },
   };
-
-  async function press(run, h) {
-    h.sc.button.classList.add('sc-pressed');
-    await run.pause(350);
-    h.sc.button.classList.remove('sc-pressed');
-  }
 
   /* 7. Across monitors (spec 6.12, ScreenMap). */
   const monitorsDemo = {
