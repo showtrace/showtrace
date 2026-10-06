@@ -134,7 +134,8 @@
   --gutter: clamp(1rem, 0.4rem + 3vw, 1.25rem);
 }
 
-@media (prefers-color-scheme: dark) {
+/* Dark on a screen only: paper takes the light tokens, whatever the visitor's scheme. */
+@media screen and (prefers-color-scheme: dark) {
   :root {
     --bg: var(--slate);
     --surface: rgba(238, 238, 238, 0.06);
@@ -1229,5 +1230,64 @@ kbd {
   .is-drawn .step-ring {
     animation: none;
     opacity: 1;
+  }
+}
+
+/* Print: the text and the end state of each demonstration, light on white paper, without what works only on a
+   screen: the skip link, the section links, the hero's links and mark, the controls, the way back to the top. */
+@page {
+  margin: 18mm 16mm;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  .skip,
+  .site-nav,
+  .actions,
+  .hero-mark,
+  .demo-controls,
+  .sandbox-tools,
+  .to-top {
+    display: none;
+  }
+
+  .mark-stroke {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .mark-dot {
+    animation: none;
+    opacity: 1;
+  }
+
+  .hero,
+  .section {
+    padding: var(--space-5) 0;
+  }
+
+  h2,
+  h3,
+  .section-head,
+  .feature-head {
+    break-after: avoid;
+  }
+
+  .feature,
+  .trace,
+  .quotes li,
+  .intents > div,
+  .download-box,
+  .demo {
+    break-inside: avoid;
+  }
+
+  /* The label that says a picture is a demonstration keeps its dark plate, which a printer leaves out by default. */
+  .demo-label {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

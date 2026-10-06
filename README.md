@@ -37,11 +37,15 @@ The page preloads the upright file; the italic one is not preloaded, because the
 
 There is no `robots.txt`: crawlers read one only at the root of a host, and Pages serves this site under `/showtrace/`, so one here would not be read. It can come with a domain.
 
+## Print
+
+A printed page is light on white paper, whatever the visitor's colour scheme: the dark scheme applies to screens only. Print leaves out what works only on a screen (the skip link, the section links, the hero's links and mark, the controls of the demonstrations and the sandbox, the link back to the top) and keeps the text, each demonstration as it stands and its "Demonstration" label, which keeps its dark plate. Cards, quotes and the trace do not break across pages.
+
 ## Preview
 
 Serve `site/` from any static file server and open it in a browser, or open `site/index.html` from disk: every file the page loads is named by a relative path. From disk the browser may refuse the font and the script under `file:`; a local server shows the page as Pages serves it.
 
-Check by hand what a script cannot: both colour schemes, a 320 px wide window, the page with the keyboard only, reduced motion, the stroke that draws itself on the logo and the hero mark, each demonstration once and again on its control, the sandbox and its PNG, every link, and a browser console without errors.
+Check by hand what a script cannot: both colour schemes, a 320 px wide window, the page with the keyboard only, reduced motion, the stroke that draws itself on the logo and the hero mark, each demonstration once and again on its control, the sandbox and its PNG, every link, a print preview, the 404 page at a missing address, and a browser console without errors.
 
 ## Check
 
