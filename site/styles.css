@@ -1303,16 +1303,58 @@ kbd {
 
 /* The sandbox */
 
+/* The stage, the state line and the tools, in the order of a card. Their space is reserved before the script mounts
+   them, so that the section does not grow: the stage at 16:10, the state line (--sandbox-lines) and the tools
+   (--sandbox-tools), by the sandbox's width. Measured on 2026-10-07 with the font loaded; when the lines or the tools
+   change, measure again. */
 .sandbox {
+  container: sandbox / inline-size;
   margin-top: var(--space-5);
   max-width: 52rem;
+  --sandbox-lines: 2;
+  --sandbox-tools: 4.5rem;
+}
+
+/* The bands, each the most its widths need; a sandbox may keep a little space, but it does not grow. */
+@container sandbox (max-width: 45.5rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 7rem; } }
+@container sandbox (max-width: 37.5rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 9rem; } }
+@container sandbox (max-width: 30.5rem) { .sandbox::after, .sandbox > * { --sandbox-lines: 3; } }
+@container sandbox (max-width: 24.25rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 11rem; } }
+@container sandbox (max-width: 21.875rem) { .sandbox::after, .sandbox > * { --sandbox-lines: 4; } }
+@container sandbox (max-width: 19.875rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 12.75rem; } }
+@container sandbox (max-width: 18.875rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 14.5rem; } }
+@container sandbox (max-width: 17.875rem) { .sandbox::after, .sandbox > * { --sandbox-lines: 5; } }
+@container sandbox (max-width: 17.125rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 16.75rem; } }
+@container sandbox (max-width: 15.75rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 19rem; } }
+
+@media (scripting: enabled) {
+  .sandbox:empty::before {
+    content: "";
+    display: block;
+    aspect-ratio: 16 / 10;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    background: var(--screen-bg);
+  }
+
+  .sandbox:empty::after {
+    content: "";
+    display: block;
+    height: calc(var(--space-3) + var(--sandbox-lines) * var(--leading) * var(--text-s) + var(--space-3) + var(--sandbox-tools));
+  }
+}
+
+.sandbox .demo-state {
+  min-height: calc(var(--sandbox-lines) * var(--leading) * var(--text-s));
 }
 
 .sandbox-tools {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2) var(--space-5);
-  margin-bottom: var(--space-3);
+  margin-top: var(--space-3);
+  min-height: var(--sandbox-tools);
 }
 
 .sandbox-canvas {
