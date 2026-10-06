@@ -1248,60 +1248,68 @@
     },
   };
 
-  /* 8. Colour and width (spec 6.9, items 6 and 7). */
+  /* 8. Colour and width (spec 6.9, items 6 and 7). A pick sets the pen for what is drawn next; marks already drawn keep
+     their colour and width. So the palette and the slider below the stage set the pen and draw a sample stroke with it. */
   const colourDemo = {
     build(card, mount) {
       const h = stage(card, mount, { alt: 'A stand-in screen. The demonstration picks a colour from the palette, a width from the slider and a custom colour.' });
       h.sc = screen(h.svg, 'colour');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
       h.tb = toolbar(h, { draw: true, active: 'pen' });
       addPointer(h, P(400, 240));
-      h.sample = null;
-      const apply = () => {
-        if (!h.sample) return;
-        h.sample.setAttribute('stroke', h.colour);
-        h.sample.setAttribute('stroke-width', h.width);
-        h.tb.set({ colour: h.colour, width: h.width });
-        h.say(`The last stroke: ${h.colour}, ${h.width} px.`);
-      };
-      const swatches = PALETTE.map(hex => {
-        const b = button('', () => { h.colour = hex; apply(); }, { class: 'swatch', 'aria-label': `Colour ${hex}` });
+      /* The picker's square (white to the hue, then to black) and its hue strip. */
+      const at = (offset, colour, opacity = 1) => svg('stop', { offset: round(offset), 'stop-color': colour, 'stop-opacity': opacity });
+      h.sc.defs.append(
+        svg('linearGradient', { id: 'picker-white' }, at(0, '#FFFFFF'), at(1, '#FFFFFF', 0)),
+        svg('linearGradient', { id: 'picker-black', x2: 0, y2: 1 }, at(0, '#000000', 0), at(1, '#000000')),
+        svg('linearGradient', { id: 'picker-hue', x2: 0, y2: 1 }, ...['#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF', '#FF0000'].map((c, i) => at(i / 6, c))));
+      h.swatches = PALETTE.map(hex => {
+        const b = button('', () => setPen(h, { colour: hex }), { class: 'swatch', 'aria-label': `Colour ${hex}`, 'aria-pressed': 'false' });
         b.style.setProperty('--swatch', hex);
         return b;
       });
-      const range = el('input', { type: 'range', min: 1, max: 40, value: PEN_WIDTH, 'aria-label': 'Width, 1 to 40' });
-      const out = el('output', { text: String(PEN_WIDTH) });
-      range.addEventListener('input', () => { h.width = Number(range.value); out.textContent = range.value; apply(); });
-      h.range = range; h.out = out;
-      h.controls.append(group('Palette', ...swatches), group('Width', range, out));
+      h.range = el('input', { type: 'range', min: 1, max: 40, value: PEN_WIDTH, 'aria-label': 'Width, 1 to 40' });
+      h.out = el('output', { text: String(PEN_WIDTH) });
+      /* The value is read before the play is stopped: the end state of a play sets the slider too. */
+      h.range.addEventListener('input', () => setPen(h, { width: Number(h.range.value) }));
+      h.controls.append(group('Palette', ...h.swatches), group('Width', h.range, h.out));
       return h;
     },
     reset(h) {
-      h.doc.reset(); clearExtras(h); h.sample = null;
+      h.doc.reset(); clearExtras(h);
       h.colour = INK.pen; h.width = PEN_WIDTH;
-      h.range.value = String(PEN_WIDTH); h.out.textContent = String(PEN_WIDTH);
-      h.tb.set({ colour: INK.pen, width: PEN_WIDTH, active: 'pen' });
+      showPen(h);
+      h.tb.set({ active: 'pen' });
       movePointer(h, P(400, 240));
     },
     async play(run, h) {
-      h.say('The colour button opens the palette: 32 colours in four rows, recent custom colours, and Custom.');
       const cell = 14, gap = 3, pad = 6;
-      const pal = popup(h, h.tb.centre('colour').x, pad * 2 + 8 * cell + 7 * gap, pad * 2 + 4 * cell + 3 * gap + 24);
-      const swatches = PALETTE.map((hex, i) => svg('rect', { x: pal.x + pad + (i % 8) * (cell + gap), y: pal.y + pad + Math.floor(i / 8) * (cell + gap), width: cell, height: cell, rx: 3, fill: hex, class: 'tb-swatch' }));
-      pal.g.append(...swatches,
-        svg('rect', { class: 'tb-textbutton', x: pal.x + pad, y: pal.y + pal.h - pad - 16, width: 46, height: 16, rx: 4 }),
-        svg('rect', { class: 'tb-textbutton', x: pal.x + pad + 52, y: pal.y + pal.h - pad - 16, width: 78, height: 16, rx: 4 }));
+      const centreOf = r => P(+r.getAttribute('x') + +r.getAttribute('width') / 2, +r.getAttribute('y') + +r.getAttribute('height') / 2);
+      /* The palette popup: 32 colours in four rows, then Custom and Use at startup. */
+      const openPalette = async () => {
+        await pick(run, h, 'colour');
+        const pal = popup(h, h.tb.centre('colour').x, pad * 2 + 8 * cell + 7 * gap, pad * 2 + 4 * cell + 3 * gap + 24);
+        const swatches = PALETTE.map((hex, i) => svg('rect', { x: pal.x + pad + (i % 8) * (cell + gap), y: pal.y + pad + Math.floor(i / 8) * (cell + gap), width: cell, height: cell, rx: 3, fill: hex, class: 'tb-swatch' }));
+        const custom = svg('rect', { class: 'tb-textbutton', x: pal.x + pad, y: pal.y + pal.h - pad - 16, width: 46, height: 16, rx: 4 });
+        pal.g.append(...swatches, custom, svg('rect', { class: 'tb-textbutton', x: pal.x + pad + 52, y: pal.y + pal.h - pad - 16, width: 78, height: 16, rx: 4 }));
+        return { g: pal.g, swatches, custom };
+      };
+
+      let pal = await openPalette();
+      h.say('The colour button opens the palette: 32 colours in four rows, recent custom colours, and Custom.');
+      await run.pause(500);
       const blue = 10;
-      await glide(run, h, P(+swatches[blue].getAttribute('x') + cell / 2, +swatches[blue].getAttribute('y') + cell / 2), 700);
-      swatches[blue].setAttribute('class', 'tb-swatch tb-swatch-on');
-      await run.pause(400);
+      await glide(run, h, centreOf(pal.swatches[blue]), 600);
+      pal.swatches[blue].setAttribute('class', 'tb-swatch tb-swatch-on');
+      await run.pause(300);
       pal.g.remove();
       h.colour = PALETTE[blue];
       h.tb.set({ colour: h.colour });
       h.say(`Picked ${h.colour}. Shapes and text take the pen colour too.`);
-      await drawStroke(run, h, curve(P(200, 200), P(260, 170), P(340, 230), P(420, 200), 30, 1), { colour: h.colour, ms: 700 });
+      tagMark(await drawStroke(run, h, curve(P(200, 200), P(260, 170), P(340, 230), P(420, 200), 30, 1), { colour: h.colour, ms: 700 }), `a stroke in ${h.colour}, ${h.width} px`);
       await run.pause(400);
+
+      await pick(run, h, 'width');
       h.say('The width button opens a slider, 1 to 40, with a preview dot in the colour.');
       const wp = popup(h, h.tb.centre('width').x, 200, 36);
       const track = svg('line', { class: 'tb-track', x1: wp.x + 40, y1: wp.y + 18, x2: wp.x + 160, y2: wp.y + 18 });
@@ -1315,25 +1323,66 @@
       wp.g.remove();
       h.tb.set({ width: h.width });
       h.say(`Width ${h.width}.`);
-      await drawStroke(run, h, curve(P(200, 262), P(260, 232), P(340, 292), P(420, 262), 30, 1), { colour: h.colour, width: h.width, ms: 700 });
+      tagMark(await drawStroke(run, h, curve(P(200, 262), P(260, 232), P(340, 292), P(420, 262), 30, 1), { colour: h.colour, width: h.width, ms: 700 }), `a stroke in ${h.colour}, ${h.width} px`);
       await run.pause(400);
-      h.say('Custom: any colour from a picker, or a hex value typed in.');
-      const custom = '#5A2D82';
-      const cp = popup(h, h.tb.centre('colour').x, 150, 60);
-      const field = svg('rect', { class: 'tb-field', x: cp.x + 10, y: cp.y + 10, width: 130, height: 20, rx: 4 });
-      const hex = svg('text', { class: 'tb-text', x: cp.x + 18, y: cp.y + 24 });
-      cp.g.append(field, hex, svg('rect', { class: 'tb-textbutton', x: cp.x + 10, y: cp.y + 36, width: 60, height: 16, rx: 4 }));
-      await run.tween(700, t => { hex.textContent = custom.slice(0, Math.round(t * custom.length)); }, linear);
-      await run.pause(400);
-      cp.g.remove();
-      h.colour = custom;
-      h.tb.set({ colour: custom });
-      h.sample = await drawStroke(run, h, curve(P(200, 324), P(260, 294), P(340, 354), P(420, 324), 30, 1), { colour: custom, width: h.width, ms: 700 });
-      h.range.value = String(h.width); h.out.textContent = String(h.width);
+
+      /* A colour outside the palette, at 3:1 or more against the stand-in's background and panel in both schemes
+         (WCAG 1.4.11), as the palette blue is: hue 293 degrees, saturation 62 percent, value 82 percent. */
+      const custom = { hex: '#C04FD0', hue: 293, s: 0.62, v: 0.82 };
+      pal = await openPalette();
+      await glide(run, h, centreOf(pal.custom), 500);
       await run.pause(200);
-      h.end(`Three strokes: the palette blue, the same at width ${h.width}, and a custom colour. The palette and the slider below recolour and resize the last one.`);
+      pal.g.remove();
+      h.say('Custom opens a picker with a hex field: any colour, picked or typed in.');
+      const cp = popup(h, h.tb.centre('colour').x, 150, 132);
+      const sq = { x: cp.x + 10, y: cp.y + 10, w: 104, h: 64 };
+      const field = { x: cp.x + 10, y: cp.y + 82 };
+      const hex = svg('text', { class: 'tb-text', x: field.x + 8, y: field.y + 14 });
+      const ok = svg('rect', { class: 'tb-textbutton', x: cp.x + 10, y: cp.y + 108, width: 60, height: 16, rx: 4 });
+      cp.g.append(
+        svg('rect', { x: sq.x, y: sq.y, width: sq.w, height: sq.h, rx: 3, fill: `hsl(${custom.hue}, 100%, 50%)` }),
+        svg('rect', { x: sq.x, y: sq.y, width: sq.w, height: sq.h, rx: 3, fill: 'url(#picker-white)' }),
+        svg('rect', { x: sq.x, y: sq.y, width: sq.w, height: sq.h, rx: 3, fill: 'url(#picker-black)' }),
+        svg('rect', { x: cp.x + 124, y: sq.y, width: 16, height: sq.h, rx: 3, fill: 'url(#picker-hue)' }),
+        svg('rect', { x: cp.x + 122, y: round(sq.y + (custom.hue / 360) * sq.h - 1.5), width: 20, height: 3, rx: 1.5, fill: '#FFFFFF', stroke: '#000000', 'stroke-width': 0.75 }),
+        svg('rect', { class: 'tb-field', x: field.x, y: field.y, width: 130, height: 20, rx: 4 }), hex, ok);
+      const spot = P(round(sq.x + custom.s * sq.w), round(sq.y + (1 - custom.v) * sq.h));
+      await glide(run, h, spot, 600);
+      cp.g.append(svg('circle', { cx: spot.x, cy: spot.y, r: 4, fill: 'none', stroke: '#FFFFFF', 'stroke-width': 2 }));
+      hex.textContent = custom.hex;
+      await run.pause(600);
+      await glide(run, h, centreOf(ok), 400);
+      await run.pause(200);
+      cp.g.remove();
+      h.colour = custom.hex;
+      h.tb.set({ colour: h.colour });
+      h.say(`${h.colour}. The palette keeps it with the recent custom colours.`);
+      tagMark(await drawStroke(run, h, curve(P(200, 324), P(260, 294), P(340, 354), P(420, 324), 30, 1), { colour: h.colour, width: h.width, ms: 700 }), `a stroke in ${h.colour}, ${h.width} px`);
+      showPen(h);
+      await run.pause(200);
+      h.end(`Three strokes: the palette blue at 4 and at ${h.width} px, then a custom colour. The palette and the slider below set the pen for a sample stroke.`, marksAlt(h));
     },
   };
+
+  /* The pen on the toolbar's colour and width buttons and in the controls below the stage. */
+  function showPen(h) {
+    h.tb.set({ colour: h.colour, width: h.width });
+    h.range.value = String(h.width);
+    h.out.textContent = String(h.width);
+    h.swatches.forEach((b, i) => b.setAttribute('aria-pressed', String(PALETTE[i] === h.colour)));
+  }
+
+  /* A control of the colour demonstration: it sets the pen and draws a sample stroke with it, in the empty space right
+     of the panel, in place of the last sample. */
+  async function setPen(h, changes) {
+    await stop(h);
+    Object.assign(h, changes);
+    showPen(h);
+    if (h.sample) h.sample.remove();
+    h.sample = tagMark(svg('path', Object.assign(inkAttrs({ colour: h.colour, width: h.width }), { d: pathOf(smooth(curve(P(494, 262), P(530, 236), P(578, 288), P(614, 258), 20, 1))) })), `a sample stroke in ${h.colour}, ${h.width} px`);
+    h.sc.marks.append(h.sample);
+    h.end(`The pen: ${h.colour}, ${h.width} px. The sample stroke shows it; strokes already drawn keep theirs.`, marksAlt(h));
+  }
 
   /* 9. The toolbar (spec 6.9). */
   const toolbarDemo = {
