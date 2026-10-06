@@ -1306,7 +1306,7 @@
       h.colour = PALETTE[blue];
       h.tb.set({ colour: h.colour });
       h.say(`Picked ${h.colour}. Shapes and text take the pen colour too.`);
-      tagMark(await drawStroke(run, h, curve(P(200, 200), P(260, 170), P(340, 230), P(420, 200), 30, 1), { colour: h.colour, ms: 700 }), `a stroke in ${h.colour}, ${h.width} px`);
+      tagMark(await drawStroke(run, h, curve(P(200, 200), P(260, 170), P(340, 230), P(420, 200), 30, 1), { colour: h.colour, ms: 700 }), `a ${h.colour} stroke of ${h.width} px`);
       await run.pause(400);
 
       await pick(run, h, 'width');
@@ -1323,7 +1323,7 @@
       wp.g.remove();
       h.tb.set({ width: h.width });
       h.say(`Width ${h.width}.`);
-      tagMark(await drawStroke(run, h, curve(P(200, 262), P(260, 232), P(340, 292), P(420, 262), 30, 1), { colour: h.colour, width: h.width, ms: 700 }), `a stroke in ${h.colour}, ${h.width} px`);
+      tagMark(await drawStroke(run, h, curve(P(200, 262), P(260, 232), P(340, 292), P(420, 262), 30, 1), { colour: h.colour, width: h.width, ms: 700 }), `a ${h.colour} stroke of ${h.width} px`);
       await run.pause(400);
 
       /* A colour outside the palette, at 3:1 or more against the stand-in's background and panel in both schemes
@@ -1357,7 +1357,7 @@
       h.colour = custom.hex;
       h.tb.set({ colour: h.colour });
       h.say(`${h.colour}. The palette keeps it with the recent custom colours.`);
-      tagMark(await drawStroke(run, h, curve(P(200, 324), P(260, 294), P(340, 354), P(420, 324), 30, 1), { colour: h.colour, width: h.width, ms: 700 }), `a stroke in ${h.colour}, ${h.width} px`);
+      tagMark(await drawStroke(run, h, curve(P(200, 324), P(260, 294), P(340, 354), P(420, 324), 30, 1), { colour: h.colour, width: h.width, ms: 700 }), `a ${h.colour} stroke of ${h.width} px`);
       showPen(h);
       await run.pause(200);
       h.end(`Three strokes: the palette blue at 4 and at ${h.width} px, then a custom colour. The palette and the slider below set the pen for a sample stroke.`, marksAlt(h));
@@ -1379,7 +1379,7 @@
     Object.assign(h, changes);
     showPen(h);
     if (h.sample) h.sample.remove();
-    h.sample = tagMark(svg('path', Object.assign(inkAttrs({ colour: h.colour, width: h.width }), { d: pathOf(smooth(curve(P(494, 262), P(530, 236), P(578, 288), P(614, 258), 20, 1))) })), `a sample stroke in ${h.colour}, ${h.width} px`);
+    h.sample = tagMark(svg('path', Object.assign(inkAttrs({ colour: h.colour, width: h.width }), { d: pathOf(smooth(curve(P(494, 262), P(530, 236), P(578, 288), P(614, 258), 20, 1))) })), `a ${h.colour} sample stroke of ${h.width} px`);
     h.sc.marks.append(h.sample);
     h.end(`The pen: ${h.colour}, ${h.width} px. The sample stroke shows it; strokes already drawn keep theirs.`, marksAlt(h));
   }
