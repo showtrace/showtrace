@@ -1366,15 +1366,38 @@
     for (const [key, b] of Object.entries(h.buttons)) b.setAttribute('aria-pressed', String(key === shape || key === s.theme));
   }
 
-  /* 10 and 11. The trace (planned) and two authors (phase 2): steps added with the signature stroke (brand.md, 6.6 and 7). */
-  const STEP_STROKE = 'M3 19 C5 11, 9 5, 13 6 C17 7, 15 13, 12 12 C9 11, 11 7, 15 8 C18 9, 20 14, 20.5 18';
+  /* 10 and 11. The trace (planned) and two authors (phase 2). Each mark is drawn on the stand-in screen first, and then
+     the step it would become is added to the mock trace next to it, with the signature stroke that ends in the author's
+     dot or ring (brand.md, 6.6 and 7). The trace mock is HTML in the card, so that it reads without the script; the
+     script only hides its steps at the start and shows them one by one. The lines say "will" for the planned trace and
+     "would" for phase 2: the build keeps no steps and has no AI author (AGENTS.md, rule 3). */
+
+  /* The signature stroke at step size, on a 24-unit grid drawn at 24 px: a loop that comes down onto the author's
+     mark and stops at its edge, so that an open ring stays open. */
+  const STEP_STROKE = 'M3 19 C5 11, 9 5, 13 6 C17 7, 15 13, 12 12 C9 11, 11 7, 15 8 C18 9, 19 11, 19 14';
+  /* The author's mark, 10 px across: a filled dot, or an open ring with a 2 px stroke (brand.md, section 7). */
+  const STEP_DOT = { cx: 19, cy: 19, r: 5 };
+  const STEP_RING = { cx: 19, cy: 19, r: 4 };
+  /* The signature's length (brand.md, 6.6): the next step waits until the dot is in. */
+  const SIGNATURE_MS = 1100;
+
+  /* The marks of the three steps, in the order of the trace mock (brand.md, section 7): the File menu circled, an
+     arrow at Export in the open menu, the button framed. */
+  const TRACE_MARKS = {
+    file: [P(6, 2), P(62, 34)],
+    exportFrom: P(196, 128),
+    exportAt: P(118, 79),
+    save: [P(492, 310), P(620, 362)],
+  };
 
   function traceDemo(kind) {
     const phase2 = kind === 'authors';
     return {
       build(card, mount) {
         const h = stage(card, mount, {
-          alt: phase2 ? 'A stand-in screen next to a trace with two authors. Phase 2: a demonstration, no agent is connected.' : 'A stand-in screen next to a trace of three steps. Planned: a demonstration of the shape of the trace.',
+          alt: phase2
+            ? 'A stand-in screen. The demonstration draws three marks on it, one of them by an AI, and adds each as a step to the trace next to it. Phase 2: no agent is connected.'
+            : 'A stand-in screen. The demonstration draws three marks on it and adds each as a step to the trace next to it. Planned: the build does not keep steps yet.',
           label: phase2 ? 'Demonstration. Phase 2' : 'Demonstration. Planned',
         });
         h.sc = screen(h.svg, kind);
@@ -1384,11 +1407,11 @@
         for (const li of h.steps) {
           const author = li.querySelector('.step-author');
           const old = author && author.querySelector('.dot, .ring');
-          const ai = !!(old && old.classList.contains('ring'));
+          const ai = Boolean(old && old.classList.contains('ring'));
           li.dataset.ai = ai ? 'yes' : 'no';
           const mark = svg('svg', { class: `step-mark ${ai ? 'ai' : 'person'}`, viewBox: '0 0 24 24', 'aria-hidden': 'true', focusable: 'false' },
             svg('path', { class: 'step-stroke', pathLength: 100, d: STEP_STROKE }),
-            svg('circle', { class: ai ? 'step-ring' : 'step-dot', cx: 20.5, cy: 18, r: 3 }));
+            svg('circle', Object.assign({ class: ai ? 'step-ring' : 'step-dot' }, ai ? STEP_RING : STEP_DOT)));
           if (old) old.replaceWith(mark); else if (author) author.prepend(mark);
         }
         return h;
@@ -1399,25 +1422,55 @@
         movePointer(h, P(360, 260));
       },
       async play(run, h) {
-        const reveal = li => { li.classList.remove('step-hidden'); if (run.instant) li.classList.add('is-instant'); li.classList.add('is-drawn'); };
-        h.say('Step 1. The teacher circles the File menu. The mark becomes a numbered step with its author and reason.');
-        reveal(h.steps[0]);
-        await drawShape(run, h, 'ellipse', P(6, 2), P(62, 34), { ms: 700, approach: 500 });
+        const [first, second, third] = h.steps;
+        const ai = Boolean(second && second.dataset.ai === 'yes');
+        /* A step shows, and with motion its stroke draws itself. The reset before a play removed is-drawn in the same
+           task, so the browser never saw it go; reading the layout makes it see that, or a second play would not
+           draw the stroke again. */
+        const add = async (li, line) => {
+          h.say(line);
+          if (!li) return;
+          li.classList.remove('step-hidden');
+          if (run.instant) { li.classList.add('is-instant', 'is-drawn'); return; }
+          void li.offsetWidth;
+          li.classList.add('is-drawn');
+          await run.pause(SIGNATURE_MS);
+        };
+
+        h.say(phase2 ? 'The teacher circles the File menu: a solid mark, in the pen colour.' : 'The teacher circles the File menu on the live screen.');
+        await drawShape(run, h, 'ellipse', TRACE_MARKS.file[0], TRACE_MARKS.file[1], { ms: 700, approach: 500 });
         h.sc.openMenu();
-        await run.pause(900);
-        const second = h.steps[1];
-        const ai = second && second.dataset.ai === 'yes';
-        h.say(ai ? 'Step 2. AI (Copilot) selects Export: a dashed mark, an open ring at the click, and the label AI.' : 'Step 2. The teacher points at Export. The reason is in the teacher\'s own words.');
-        if (second) reveal(second);
-        await drawShape(run, h, 'arrow', P(160, 160), P(122, 104), ai ? { cls: 'ai-ink', dashed: true, ring: true, ms: 600 } : { ms: 600 });
-        await run.pause(900);
-        h.say('Step 3. The teacher saves the file as PDF.');
-        if (h.steps[2]) reveal(h.steps[2]);
-        await drawShape(run, h, 'rectangle', P(492, 310), P(620, 362), { ms: 600 });
-        await run.pause(600);
+        await run.pause(300);
+        await add(first, phase2
+          ? 'Step 1: a filled dot and the teacher\'s role. No reason was given, so it would say "not given".'
+          : 'Planned: the trace will keep the mark as step 1, with what was done, who did it and why.');
+        await run.pause(500);
+
+        h.say(ai
+          ? 'Then AI (Copilot) would select Export: the same arrow, dashed and grey, with an open ring at the click.'
+          : 'The teacher points at Export.');
+        await drawShape(run, h, 'arrow', TRACE_MARKS.exportFrom, TRACE_MARKS.exportAt, ai ? { cls: 'ai-ink', dashed: true, ring: true, ms: 600 } : { ms: 600 });
+        await run.pause(300);
+        await add(second, ai
+          ? 'Step 2 would carry an open ring and the label AI, with the agent\'s name and its reason.'
+          : 'Step 2 will carry the reason in the teacher\'s own words.');
+        await run.pause(500);
+
+        h.say(phase2 ? 'The teacher saves the file as PDF.' : 'The teacher frames the button that saves the file.');
+        await drawShape(run, h, 'rectangle', TRACE_MARKS.save[0], TRACE_MARKS.save[1], { ms: 600 });
+        await run.pause(300);
+        await add(third, phase2
+          ? 'Step 3, with the teacher\'s reason.'
+          : 'Step 3. No reason was given, so the step will say "not given". A reason is never made up.');
+        await run.pause(400);
+
+        const screenAlt = phase2
+          ? 'The stand-in screen with three marks: a red ellipse round the File menu, a dashed grey arrow at Export in the open menu with an open ring at its tip, and a red rectangle round a button.'
+          : 'The stand-in screen with three red marks: an ellipse round the File menu, an arrow at Export in the open menu, and a rectangle round a button.';
         h.end(phase2
-          ? 'Two authors in one trace: a filled dot and solid marks for the teacher, an open ring and dashed marks for the AI. Phase 2: no agent is connected.'
-          : 'Three steps in order, each with what was done, who did it and why. Planned: the build does not keep steps yet.');
+          ? 'Two authors in one trace: solid marks and a filled dot for the teacher, dashed grey marks and an open ring for the AI. Phase 2: no agent is connected; the AI is named as an example.'
+          : 'Three marks, three steps in order, each with what was done, who did it and why. Planned: the build does not keep steps yet; the trace here is a mock.',
+        `${screenAlt} The trace next to it lists them as three steps.`);
       },
     };
   }
