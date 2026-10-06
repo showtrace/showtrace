@@ -992,12 +992,14 @@
     },
   };
 
-  /* 3. Fading ink. */
+  /* The fade popup's choices and their durations (spec 5.4, 6.9 item 8). */
+  const FADE_CHOICES = [['Off', 0], ['Short', 3], ['Medium', 8], ['Long', 20]];
+
+  /* 3. Fading ink (spec 5.4). */
   const fadeDemo = {
     build(card, mount) {
-      const h = stage(card, mount, { alt: 'A stand-in screen. The demonstration draws a circle that fades after 3, 8 or 20 seconds.' });
+      const h = stage(card, mount, { alt: 'A stand-in screen. The demonstration draws an arrow, then a circle with fading ink that goes after 3, 8 or 20 seconds.' });
       h.sc = screen(h.svg, 'fade');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
       h.tb = toolbar(h, { draw: true });
       addPointer(h, P(420, 250));
@@ -1010,22 +1012,60 @@
       h.controls.append(set);
       return h;
     },
-    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ active: null, on: {} }); movePointer(h, P(420, 250)); },
+    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ active: 'arrow', on: {} }); movePointer(h, P(372, 250)); },
     async play(run, h) {
       const seconds = h.choice();
-      h.tb.set({ active: 'ellipse', on: { fade: true } });
-      h.say(`Fading ink is on, ${seconds} s. The circle goes round the button.`);
+      const [name] = FADE_CHOICES.find(([, s]) => s === seconds);
+      h.say('Fading ink is off. An arrow points at the button, and it stays.');
+      await drawShape(run, h, 'arrow', P(372, 250), P(474, 314), { ms: 600 });
+      await run.pause(500);
+      h.say('The fade button: Off, Short 3 s, Medium 8 s, Long 20 s.');
+      await tap(run, h, 'fade', {});
+      const pop = fadePopup(h, name);
+      await glide(run, h, pop.at, 500);
+      await run.pause(250);
+      pop.choose();
+      await run.pause(350);
+      pop.g.remove();
+      h.tb.set({ on: { fade: true } });
+      /* A new mark takes the fade that is on when it is drawn; marks drawn before keep theirs (spec 5.4). */
+      h.say(`${name}: marks drawn from now on fade after ${seconds} s. The arrow keeps its own setting.`);
+      await tap(run, h, 'ellipse', { active: 'ellipse' });
       const node = await drawShape(run, h, 'ellipse', P(488, 306), P(624, 366), { ms: 800 });
+      await glide(run, h, P(430, 230), 400);
       for (let left = seconds; left > 0; left--) {
-        h.say(`Drawn with fading ink. It fades after ${seconds} s: gone in ${left} s.`);
+        h.say(`The circle round the button fades after ${seconds} s: gone in ${left} s.`);
         await run.hold(1000);
       }
       h.say('Fading out, 600 ms.');
       await run.tween(FADE_OUT_MS, t => node.setAttribute('opacity', round(1 - t)), linear);
       h.doc.purge(node);
-      h.end(`Gone after ${seconds} s. The spot is clean again, and undo does not bring the circle back.`);
+      h.end(`The circle round the button went after ${seconds} s, and undo does not bring it back. The arrow, drawn before fading ink was on, stays.`,
+        `A stand-in screen. An arrow points at a button. The circle that went round the button has faded after ${seconds} s.`);
     },
   };
+
+  /* The fade popup under the toolbar, with the build's four choices; choose() shows the pick as the build shows an
+     active item. at: the centre of the choice to pick. */
+  function fadePopup(h, name) {
+    const w = 52, gap = 4, pad = 6, hgt = 20;
+    const pop = popup(h, h.tb.centre('fade').x, pad * 2 + FADE_CHOICES.length * w + (FADE_CHOICES.length - 1) * gap, pad * 2 + hgt);
+    let at = null, pick = null;
+    FADE_CHOICES.forEach(([label], i) => {
+      const x = pop.x + pad + i * (w + gap), y = pop.y + pad;
+      const item = svg('rect', { class: 'tb-textbutton', x, y, width: w, height: hgt, rx: 4 });
+      pop.g.append(item, svg('text', { class: 'tb-text', x: x + w / 2, y: y + 14, 'text-anchor': 'middle', text: label }));
+      if (label === name) { at = P(x + w / 2, y + hgt / 2); pick = [x, y]; }
+    });
+    return {
+      g: pop.g, at,
+      choose() {
+        const [x, y] = pick;
+        pop.g.append(svg('rect', { x, y, width: w, height: hgt, rx: 4, class: 'tb-active' }),
+          svg('rect', { x: x + 0.75, y: y + 0.75, width: w - 1.5, height: hgt - 1.5, rx: 3.25, class: 'tb-edge' }));
+      },
+    };
+  }
 
   /* 4. Boards (spec 6.5). */
   const BOARDS = {
