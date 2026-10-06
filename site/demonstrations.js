@@ -1616,6 +1616,17 @@
     return P(from.x + length * Math.cos(angle), from.y + length * Math.sin(angle));
   }
 
+  /* The light tokens of the stylesheet's own :root rule, or null. A printed page is light whatever the screen's scheme
+     (styles.css), and a canvas holds pixels, so for paper the sandbox paints its stand-in again with these. */
+  function lightTokens() {
+    for (const sheet of document.styleSheets) {
+      let rules;
+      try { rules = sheet.cssRules; } catch (_) { continue; }
+      for (const rule of rules) if (rule.selectorText === ':root') return rule.style;
+    }
+    return null;
+  }
+
   function sandbox(root) {
     const W = 640, H = 400;
     const canvas = el('canvas', { class: 'sandbox-canvas', role: 'img' });
@@ -1845,6 +1856,19 @@
     if ('ResizeObserver' in window) new ResizeObserver(resize).observe(stageBox);
     else window.addEventListener('resize', resize);
     darkScheme.addEventListener('change', render);
+    /* Paper takes the light stand-in; the screen gets its own back after. The tokens are set on the root only while
+       the canvas paints, before the browser paints anything else. */
+    window.addEventListener('beforeprint', () => {
+      const light = darkScheme.matches && lightTokens();
+      if (!light) return;
+      const names = Array.from(light).filter(n => n.startsWith('--screen-') || n.startsWith('--demo-label-'));
+      const rootStyle = document.documentElement.style;
+      for (const n of names) rootStyle.setProperty(n, light.getPropertyValue(n));
+      render();
+      for (const n of names) rootStyle.removeProperty(n);
+      if (!rootStyle.length) document.documentElement.removeAttribute('style');
+    });
+    window.addEventListener('afterprint', render);
     resize();
   }
 
