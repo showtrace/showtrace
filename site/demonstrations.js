@@ -68,8 +68,10 @@
     return b;
   }
 
+  /* A labelled group of controls. The group carries the name; the visible label is hidden from a screen reader, so
+     that the name is read once. */
   function group(label, ...children) {
-    return el('div', { class: 'control-group', role: 'group', 'aria-label': label }, el('span', { class: 'control-label', text: label }), ...children);
+    return el('div', { class: 'control-group', role: 'group', 'aria-label': label }, el('span', { class: 'control-label', text: label, 'aria-hidden': 'true' }), ...children);
   }
 
   const round = v => Math.round(v * 10) / 10;
