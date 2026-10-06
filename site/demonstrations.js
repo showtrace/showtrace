@@ -23,16 +23,24 @@
   const reducedMotion = media('(prefers-reduced-motion: reduce)');
   const darkScheme = media('(prefers-color-scheme: dark)');
 
-  /* The build's ink and sizes (spec 5.4, 5.6, 6.4, 6.6, 6.7, 7.1). The brand teal is never ink (brand.md, 6.2). */
+  /* The build's ink and sizes, in stand-in units that stand for the build's pixels. The brand teal is never ink
+     (brand.md, 6.2). The pen #FF3B30, the highlighter and the halo #FFCC00 are the defaults of spec 5.6; the laser red
+     #FF1E1E is the build's (LaserTool; spec 6.6 says red). */
   const INK = { pen: '#FF3B30', highlighter: '#FFCC00', laser: '#FF1E1E', halo: '#FFCC00' };
+  /* Pen 4 px, a width from 1 to 40 (spec 5.6, 7.1). The highlighter draws 3 times the width at 35 percent opacity, with
+     flat caps (spec 6.2, 7.1). Text is Segoe UI, 24 px (spec 6.4, 7.1). Fading ink goes in 600 ms (spec 5.4, 7.1). */
   const PEN_WIDTH = 4;
   const HIGHLIGHTER_FACTOR = 3;
   const HIGHLIGHTER_OPACITY = 0.35;
+  const TEXT_SIZE = 24;
   const FADE_OUT_MS = 600;
+  /* The laser: a 10 px dot and a trail of 1.5 s (spec 6.6, 7.1), whose segments are 6 px wide when new and narrow to
+     30 percent as they fade (the build's LaserTool). The halo: 40 px, yellow, 40 percent (spec 5.6, 7.1). */
   const LASER = { dot: 10, trail: 6, trailMs: 1500 };
   const HALO = { diameter: 40, opacity: 0.4 };
-  /* The lens is 320 px on the real screen (spec 6.7); the stand-in screen is not to scale. */
-  const LENS = { size: 200, start: 2 };
+  /* The lens: a rounded square of 320 px (here 200: the stand-in is not to scale) with the corners of the build's lens
+     window, 2x at first, 1.5x to 8x in steps of 0.5x (spec 6.7, 7.1). */
+  const LENS = { size: 200, radius: 12, start: 2 };
   /* The 32 colours of the palette, in display order (spec 5.8). */
   const PALETTE = [
     '#000000', '#FFFFFF', '#808080', '#C0C0C0', '#FF3B30', '#FF9500', '#FFCC00', '#34C759',
@@ -179,7 +187,8 @@
     return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
   }
 
-  /* The build's arrow head: at the end point, at least 12 px, 4 times the width, 28 degrees each side (ShapeGeometry). */
+  /* The build's arrow head (spec 6.4: at the end point, growing with the width; ShapeGeometry.ArrowHead): two wings of
+     4 times the width and at least 12 px, 28 degrees each side. */
   function arrowHead(start, end, width) {
     const length = Math.max(12, width * 4);
     const angle = Math.atan2(end.y - start.y, end.x - start.x);
@@ -192,34 +201,111 @@
 
   /* ---------- The stand-in screen ---------- */
 
-  /* 640 by 400 units: a neutral window with a menu bar, a side pane, text lines, a panel and a button. Grey blocks
-     only, so that it never reads as a screenshot. The sandbox paints the same layout on its canvas. */
+  /* 640 by 400 units: a neutral window with a menu bar, a side pane, a heading and lines of text, a panel and a button.
+     Grey shapes only, so that it never reads as a screenshot. The places a demonstration points at. */
   const LAYOUT = {
     bar: { x: 0, y: 0, w: 640, h: 36 },
     menus: [{ x: 16, y: 12, w: 36, h: 12 }, { x: 64, y: 12, w: 36, h: 12 }, { x: 112, y: 12, w: 44, h: 12 }],
     side: { x: 0, y: 36, w: 150, h: 364 },
     sideLines: [60, 84, 108, 132, 156].map(y => ({ x: 18, y, w: 100, h: 10 })),
-    lines: [[64, 300], [86, 380], [108, 260], [130, 340], [152, 200]].map(([y, w]) => ({ x: 182, y, w, h: 10 })),
+    heading: { x: 182, y: 61, w: 236, h: 14 },
+    lines: [[86, 380], [108, 260], [130, 340], [152, 200]].map(([y, w]) => ({ x: 182, y, w, h: 10 })),
     panel: { x: 182, y: 190, w: 290, h: 130 },
-    panelLines: [[210, 180], [232, 230], [254, 150]].map(([y, w]) => ({ x: 200, y, w, h: 10 })),
     button: { x: 500, y: 318, w: 112, h: 36 },
-    buttonLabel: { x: 526, y: 333, w: 60, h: 6 },
     dropdown: { x: 16, y: 36, w: 150, h: 120 },
     dropdownItems: [48, 72, 96, 120].map(y => ({ x: 30, y, w: 90, h: 10 })),
   };
 
-  const rect = (b, cls, extra) => svg('rect', Object.assign({ x: b.x, y: b.y, width: b.w, height: b.h, class: cls }, extra));
+  /* The stand-in as one list of shapes in painting order, so that the demonstrations (SVG, blocks) and the sandbox
+     (a canvas, paintStandIn) paint the same screen. A shape of class sc-NAME is filled with the colour token
+     --screen-NAME of styles.css: by the stylesheet in an SVG, and read from it on a canvas. Lines of text are words,
+     and the panel carries small print, so that the lens has something to enlarge. */
+  const shape = (cls, b, r = 0, name = '') => ({ cls, b, r, name });
+  const grow = (b, d) => ({ x: b.x - d, y: b.y - d, w: b.w + 2 * d, h: b.h + 2 * d });
+  const WORD_WIDTHS = [46, 30, 64, 38, 26, 54, 34, 70, 42, 28];
 
-  /* The blocks of the stand-in window. Returns the nodes and the ones a demonstration points at. */
+  function words(b, cls, size = 1) {
+    const out = [];
+    const end = b.x + b.w, gap = 6 * size;
+    for (let x = b.x, i = b.y % WORD_WIDTHS.length; x < end; i++) {
+      let w = WORD_WIDTHS[i % WORD_WIDTHS.length] * size;
+      if (end - (x + w + gap) < 18 * size) w = end - x;
+      out.push(shape(cls, { x, y: b.y, w, h: b.h }, b.h / 2));
+      x += w + gap;
+    }
+    return out;
+  }
+
+  const SHAPES = standInShapes();
+
+  function standInShapes() {
+    const { panel: p, button: b } = LAYOUT;
+    const inPanel = (dx, dy, w, h) => ({ x: p.x + dx, y: p.y + dy, w, h });
+    return [
+      shape('sc-bg', { x: 0, y: 0, w: 640, h: 400 }),
+      shape('sc-side', LAYOUT.side),
+      shape('sc-bar', LAYOUT.bar),
+      shape('sc-edge', { x: 0, y: 36, w: 640, h: 1 }),
+      shape('sc-edge', { x: 150, y: 37, w: 1, h: 363 }),
+      ...LAYOUT.menus.map(m => shape('sc-block', m, 3)),
+      ...LAYOUT.sideLines.flatMap((s, i) => [
+        shape('sc-block', { x: s.x, y: s.y, w: 10, h: s.h }, 3),
+        shape('sc-line', { x: s.x + 16, y: s.y, w: [70, 52, 80, 60, 44][i], h: s.h }, s.h / 2)]),
+      shape('sc-block', LAYOUT.heading, 7),
+      ...LAYOUT.lines.flatMap(l => words(l, 'sc-line')),
+      shape('sc-edge', grow(p, 1), 9),
+      shape('sc-panel', p, 8),
+      shape('sc-block', inPanel(18, 16, 120, 10), 5),
+      ...[[36, 250], [50, 218]].flatMap(([dy, w]) => words(inPanel(18, dy, w, 8), 'sc-line')),
+      ...[[68, 236], [74, 252], [80, 180]].flatMap(([dy, w]) => words(inPanel(18, dy, w, 3), 'sc-line', 0.5)),
+      shape('sc-line', inPanel(18, 100, 58, 16), 8),
+      shape('sc-line', inPanel(82, 100, 46, 16), 8),
+      shape('sc-shade', { x: b.x, y: b.y + 1.5, w: b.w, h: b.h }, 6),
+      shape('sc-button', b, 6, 'button'),
+      shape('sc-button-label', { x: b.x + 26, y: b.y + 15, w: 60, h: 6 }, 3),
+    ];
+  }
+
+  /* The stand-in application's first menu, open. */
+  const DROPDOWN = [
+    shape('sc-edge', grow(LAYOUT.dropdown, 1), 7),
+    shape('sc-dropdown', LAYOUT.dropdown, 6),
+    ...LAYOUT.dropdownItems.map((b, i) => shape('sc-line', { x: b.x, y: b.y, w: [64, 82, 90, 56][i], h: b.h }, b.h / 2)),
+  ];
+
+  const rect = (b, cls, extra) => svg('rect', Object.assign({ x: b.x, y: b.y, width: b.w, height: b.h, class: cls }, extra));
+  const shapeNode = s => rect(s.b, s.cls, s.r ? { rx: s.r } : null);
+
+  /* The stand-in as SVG nodes, and the button a demonstration presses. */
   function blocks() {
-    const nodes = [rect({ x: 0, y: 0, w: 640, h: 400 }, 'sc-bg'), rect(LAYOUT.side, 'sc-side'), rect(LAYOUT.bar, 'sc-bar')];
-    const menus = LAYOUT.menus.map(b => rect(b, 'sc-block', { rx: 3 }));
-    nodes.push(...menus, ...LAYOUT.sideLines.map(b => rect(b, 'sc-line', { rx: 5 })), ...LAYOUT.lines.map(b => rect(b, 'sc-line', { rx: 5 })));
-    const panel = rect(LAYOUT.panel, 'sc-panel', { rx: 8 });
-    nodes.push(panel, ...LAYOUT.panelLines.map(b => rect(b, 'sc-line', { rx: 5 })));
-    const btn = rect(LAYOUT.button, 'sc-button', { rx: 6 });
-    nodes.push(btn, rect(LAYOUT.buttonLabel, 'sc-button-label', { rx: 3 }));
-    return { nodes, menus, panel, button: btn };
+    const nodes = SHAPES.map(shapeNode);
+    return { nodes, button: nodes[SHAPES.findIndex(s => s.name === 'button')] };
+  }
+
+  /* The stand-in on a canvas of 640 by 400 units, in the colours of the current scheme. With label, the picture says
+     what it is, as the label on the stage does. */
+  function paintStandIn(c, label) {
+    const style = getComputedStyle(document.documentElement);
+    const token = name => style.getPropertyValue(name).trim();
+    const fillBox = (b, r) => {
+      c.beginPath();
+      if (r && c.roundRect) c.roundRect(b.x, b.y, b.w, b.h, r); else c.rect(b.x, b.y, b.w, b.h);
+      c.fill();
+    };
+    const fills = new Map();
+    for (const s of SHAPES) {
+      if (!fills.has(s.cls)) fills.set(s.cls, token(`--screen-${s.cls.slice(3)}`));
+      c.fillStyle = fills.get(s.cls);
+      fillBox(s.b, s.r);
+    }
+    if (!label) return;
+    const text = 'Demonstration';
+    c.font = '600 13px system-ui, "Segoe UI", sans-serif';
+    c.fillStyle = token('--demo-label-bg');
+    fillBox({ x: 10, y: 10, w: c.measureText(text).width + 16, h: 22 }, 4);
+    c.fillStyle = token('--demo-label-text');
+    c.textBaseline = 'middle';
+    c.fillText(text, 18, 21);
   }
 
   function screen(root, id) {
@@ -234,11 +320,11 @@
     let menu = null;
     return {
       svg: root, defs, content, blockLayer, marks, overlay, id,
-      menus: parts.menus, panel: parts.panel, button: parts.button,
+      button: parts.button,
       /* The stand-in application opens its first menu: a dropdown under it. */
       openMenu() {
         if (menu) return;
-        menu = svg('g', null, rect(LAYOUT.dropdown, 'sc-dropdown', { rx: 6 }), ...LAYOUT.dropdownItems.map(b => rect(b, 'sc-line', { rx: 5 })));
+        menu = svg('g', null, ...DROPDOWN.map(shapeNode));
         blockLayer.append(menu);
       },
       closeMenu() { if (menu) menu.remove(); menu = null; },
@@ -323,8 +409,12 @@
 
   const POINTER = 'M0 0 L0 17 L4.6 13.2 L7.6 19.6 L10.3 18.4 L7.4 12 L12.6 12 Z';
 
+  /* The pointer is drawn a quarter larger than the arrow at 100 percent scaling, so that it reads at card size: the
+     stand-in is not to scale. Its tip is the point it stands at. */
+  const POINTER_SCALE = 1.25;
+
   function addPointer(h, at) {
-    h.pointer = svg('g', { class: 'pointer' }, svg('path', { d: POINTER }));
+    h.pointer = svg('g', { class: 'pointer' }, svg('path', { d: POINTER, transform: `scale(${POINTER_SCALE})` }));
     h.sc.overlay.append(h.pointer);
     movePointer(h, at);
   }
@@ -354,15 +444,16 @@
 
     exec(command) { command.redo(); this.done.push(command); this.undone = []; }
 
+    /* Each command names the items it touches, as the build's commands do, so that expiry can find it. */
     add(node) {
-      this.exec({ redo: () => this.layer.append(node), undo: () => node.remove() });
+      this.exec({ nodes: [node], redo: () => this.layer.append(node), undo: () => node.remove() });
       return node;
     }
 
     clear() {
       const nodes = [...this.layer.children];
       if (nodes.length === 0) return false;
-      this.exec({ redo: () => nodes.forEach(n => n.remove()), undo: () => nodes.forEach(n => this.layer.append(n)) });
+      this.exec({ nodes, redo: () => nodes.forEach(n => n.remove()), undo: () => nodes.forEach(n => this.layer.append(n)) });
       return true;
     }
 
@@ -370,10 +461,11 @@
 
     redo() { const c = this.undone.pop(); if (!c) return false; c.redo(); this.done.push(c); return true; }
 
-    /* Fade expiry: the item leaves the page and every command that could bring it back (spec 5.2). */
+    /* Fade expiry: the item leaves the page, and every command that references it leaves both stacks, a clear that
+       took it included, so that undo and redo never bring expired ink back (spec 5.2). */
     purge(node) {
       node.remove();
-      const keep = c => !(c.node === node);
+      const keep = c => !c.nodes.includes(node);
       this.done = this.done.filter(keep);
       this.undone = this.undone.filter(keep);
     }
@@ -385,6 +477,8 @@
 
   /* ---------- Marks ---------- */
 
+  /* The stroke of a mark. o: width (the pen's 4 by default), colour, highlighter (3 times the width, 35 percent, flat
+     caps: spec 6.2), cls (a class that colours it instead, such as ai-ink), dashed (an AI's marks: brand.md, section 7). */
   function inkAttrs(o) {
     const width = o.width || PEN_WIDTH;
     const a = { fill: 'none', 'stroke-width': o.highlighter ? width * HIGHLIGHTER_FACTOR : width, 'stroke-linecap': o.highlighter ? 'butt' : 'round', 'stroke-linejoin': 'round' };
@@ -410,7 +504,8 @@
     return path;
   }
 
-  /* A line, arrow, rectangle or ellipse dragged from one point to another, with a live preview (spec 6.4). */
+  /* A line, arrow, rectangle or ellipse dragged from one point to another, with a live preview; the arrow's head at the
+     end point, as the build computes it (spec 6.4, arrowHead). */
   async function drawShape(run, h, kind, from, to, o = {}) {
     const doc = o.doc || h.doc;
     const width = o.width || PEN_WIDTH;
@@ -444,46 +539,51 @@
     return node;
   }
 
-  /* Text typed at a point, in the pen colour (spec 6.4). */
+  /* Text typed at a point, its top-left at the click, in the pen colour, Segoe UI 24 px (spec 6.4, 7.1). */
   async function drawText(run, h, at, str, o = {}) {
     const doc = o.doc || h.doc;
-    const node = svg('text', { x: at.x, y: at.y, class: 'sc-text', fill: o.colour || INK.pen, 'font-size': o.size || 22 });
+    const node = svg('text', { x: at.x, y: at.y, class: 'sc-text', fill: o.colour || INK.pen, 'font-size': o.size || TEXT_SIZE });
     await glide(run, h, at, 300);
     doc.add(node);
     await run.tween(o.ms || 700, t => { node.textContent = str.slice(0, Math.round(t * str.length)); }, linear);
     return node;
   }
 
-  /* The laser (spec 6.6): a red dot at the pointer, a trail whose segments narrow and fade over 1.5 s, no ink. */
+  /* The laser (spec 6.6): a red dot at the pointer, a trail whose segments narrow and fade over 1.5 s, no ink. As in the
+     build, a segment ages from the moment the pointer was at its start, and a point is added only when the pointer
+     moves. Each segment is drawn once; a frame only changes the width and opacity of the ones still fading. */
   async function laser(run, h, points, ms) {
     const g = extra(h, underPointer(h, svg('g', { class: 'laser' })));
-    const trail = svg('g');
+    const trail = svg('g', { stroke: INK.laser, 'stroke-linecap': 'round' });
     const dot = svg('circle', { r: LASER.dot / 2, fill: INK.laser });
     g.append(trail, dot);
     h.pointer.setAttribute('visibility', 'hidden');
-    const samples = [];
-    const redraw = now => {
-      trail.replaceChildren();
-      for (let i = 1; i < samples.length; i++) {
-        const strength = Math.max(0, 1 - (now - samples[i - 1].t) / LASER.trailMs);
-        if (strength <= 0) continue;
-        trail.append(svg('line', {
-          x1: round(samples[i - 1].x), y1: round(samples[i - 1].y), x2: round(samples[i].x), y2: round(samples[i].y),
-          stroke: INK.laser, 'stroke-width': round(LASER.trail * (0.3 + 0.7 * strength)), 'stroke-linecap': 'round', opacity: round(strength),
-        }));
+    const segments = [];
+    let last = null;
+    const age = now => {
+      while (segments.length && now - segments[0].t >= LASER.trailMs) segments.shift().line.remove();
+      for (const s of segments) {
+        const strength = 1 - (now - s.t) / LASER.trailMs;
+        attr(s.line, { 'stroke-width': round(LASER.trail * (0.3 + 0.7 * strength)), opacity: round(strength) });
       }
-      while (samples.length && now - samples[0].t >= LASER.trailMs) samples.shift();
     };
     const n = points.length;
     await run.tween(ms, t => {
       const p = points[Math.round(t * (n - 1))];
       const now = performance.now();
-      samples.push({ x: p.x, y: p.y, t: now });
+      if (!last || p.x !== last.x || p.y !== last.y) {
+        if (last) {
+          const line = svg('line', { x1: round(last.x), y1: round(last.y), x2: round(p.x), y2: round(p.y) });
+          trail.append(line);
+          segments.push({ line, t: last.t });
+        }
+        last = { x: p.x, y: p.y, t: now };
+      }
       attr(dot, { cx: round(p.x), cy: round(p.y) });
       h.at = p;
-      redraw(now);
+      age(now);
     });
-    await run.tween(LASER.trailMs + 50, () => redraw(performance.now()), linear);
+    await run.tween(LASER.trailMs + 50, () => age(performance.now()), linear);
     return g;
   }
 
@@ -496,11 +596,11 @@
   /* The magnifier lens (spec 6.7): a rounded square that shows the screen under the pointer enlarged. */
   function addLens(h) {
     const id = `lens-${h.sc.id}`;
-    const clipRect = svg('rect', { width: LENS.size, height: LENS.size, rx: 16 });
+    const clipRect = svg('rect', { width: LENS.size, height: LENS.size, rx: LENS.radius });
     const clip = svg('clipPath', { id }, clipRect);
     h.sc.defs.append(clip);
     const use = svg('use', { href: `#sc-${h.sc.id}` });
-    const frame = svg('rect', { width: LENS.size, height: LENS.size, rx: 16, class: 'lens-frame' });
+    const frame = svg('rect', { width: LENS.size, height: LENS.size, rx: LENS.radius, class: 'lens-frame' });
     const g = svg('g', { class: 'lens' }, svg('g', { 'clip-path': `url(#${id})` }, use), frame);
     extra(h, g);
     extra(h, clip);
@@ -519,43 +619,56 @@
     h.lens.set(h.at.x, h.at.y, h.zoom);
   }
 
+  /* The draw-mode glow of the toolbar: #00E5FF in both themes (spec 6.3 and 6.9), at the full strength the build gives
+     it; the build's blur radius of 22 px at 36 px buttons is about 4 units at the stand-in's 20. The region fits a
+     toolbar of any shape. */
   function addGlow(h) {
+    if (h.glowId) return;
     h.glowId = `glow-${h.sc.id}`;
-    h.sc.defs.append(svg('filter', { id: h.glowId, x: '-20%', y: '-60%', width: '140%', height: '220%' },
-      svg('feDropShadow', { dx: 0, dy: 0, stdDeviation: 5, 'flood-color': '#00E5FF', 'flood-opacity': 0.95 })));
+    h.sc.defs.append(svg('filter', { id: h.glowId, x: '-50%', y: '-50%', width: '200%', height: '200%' },
+      svg('feDropShadow', { dx: 0, dy: 0, stdDeviation: 4, 'flood-color': '#00E5FF', 'flood-opacity': 1 })));
   }
 
   /* ---------- The stand-in toolbar (spec 6.9) ---------- */
 
+  /* The build's items in its order, '|' for a separator; a separator belongs to the group after it. */
   const TOOLBAR_ITEMS = ['main', '|', 'mode', '|', 'pen', 'highlighter', 'eraser', '|', 'line', 'arrow', 'rectangle', 'ellipse', 'text', '|',
-    'laser', 'magnifier', 'halo', '|', 'colour', 'width', '|', 'fade', 'undo', 'redo', 'clear', 'clearmenu', '|', 'board', 'capture', 'menu'];
-  const TB = { size: 20, gap: 2, pad: 4, sep: 6, narrow: 10 };
+    'laser', 'magnifier', 'halo', '|', 'colour', 'width', '|', 'fade', 'undo', 'redo', 'clear', 'clearmenu', '|', 'board', 'capture', '|', 'menu'];
+  /* One size in every demonstration, in stand-in units. A button is the 20-unit grid of its glyph (brand.md, 6.5) with
+     a gap of 2, as the build's 36 px buttons have; a separator's cell is 7, the clear menu's arrow half a button. The
+     toolbar spans most of the stand-in's width, more than the build's does on a real screen, so that its glyphs read at
+     card size: the stand-in is not to scale. Like the build's, its tools wrap into a second row or column when they do
+     not fit the screen, the main icon kept apart, and it is clamped onto the screen (spec 6.9). */
+  const TB = { button: 20, gap: 2, sep: 7, narrow: 10, pad: 2, margin: 4, reserve: 44 };
+  const CELL = TB.button + TB.gap;
 
-  /* Glyphs on a 20 by 20 grid, 2 px strokes, round caps (brand.md, 6.5). Stand-ins for the icons of the build. */
+  /* Glyphs on a 20-unit grid with a 16-unit live area, 2-unit strokes, round caps and joins, monochrome (brand.md,
+     6.5). Drawn for the site: the build's icons are a Windows font. */
   const GLYPHS = {
-    pen: 'M4 16 L5 12.5 L13 4.5 L15.5 7 L7.5 15 Z M11.5 6 L14 8.5',
-    highlighter: 'M6 13 L12.5 6.5 L15.5 9.5 L9 16 L6 16 Z M3 18.5 L17 18.5',
-    eraser: 'M3.5 12.5 L10.5 5.5 L16 11 L10.5 16.5 L7.5 16.5 L3.5 12.5 Z M7.5 16.5 L16.5 16.5',
-    line: 'M4 16 L16 4',
-    arrow: 'M4 16 L16 4 M9.5 4 L16 4 L16 10.5',
-    rectangle: 'M4 5 L16 5 L16 15 L4 15 Z',
-    ellipse: 'M16 10 A6 6 0 1 1 4 10 A6 6 0 1 1 16 10',
-    text: 'M5 5 L15 5 M10 5 L10 16',
-    magnifier: 'M12.3 12.3 L17 17 M13.5 8.5 A5 5 0 1 1 3.5 8.5 A5 5 0 1 1 13.5 8.5',
-    fade: 'M15.5 11.5 A5.5 5.5 0 1 1 4.5 11.5 A5.5 5.5 0 1 1 15.5 11.5 M10 8.5 L10 11.5 L12.5 13 M8 3.5 L12 3.5 M10 3.5 L10 6',
-    undo: 'M4.5 9 L4.5 4.5 M4.5 9 L9 9 M4.5 9 C6.5 6, 9.5 5, 12 6 C15.5 7.5, 16 12.5, 13 14.8 C11.5 16, 9 16, 7.5 15',
-    redo: 'M15.5 9 L15.5 4.5 M15.5 9 L11 9 M15.5 9 C13.5 6, 10.5 5, 8 6 C4.5 7.5, 4 12.5, 7 14.8 C8.5 16, 11 16, 12.5 15',
-    clear: 'M4.5 6 L15.5 6 M8 6 L8 4 L12 4 L12 6 M6 6 L7 16.5 L13 16.5 L14 6 M8.5 9 L8.5 13.5 M11.5 9 L11.5 13.5',
-    clearmenu: 'M2 7.5 L5 10.5 L8 7.5',
-    board: 'M3.5 4.5 L16.5 4.5 L16.5 13.5 L3.5 13.5 Z M10 13.5 L10 17 M7 17 L13 17',
-    capture: 'M3.5 7 L7 7 L8.5 4.5 L11.5 4.5 L13 7 L16.5 7 L16.5 15.5 L3.5 15.5 Z M12.6 11 A2.6 2.6 0 1 1 7.4 11 A2.6 2.6 0 1 1 12.6 11',
-    menu: 'M4 6 L16 6 M4 10 L16 10 M4 14 L16 14',
+    pen: 'M3.5 16.5 L4.5 12.5 L13 4 L16 7 L7.5 15.5 Z M11 6 L14 9',
+    highlighter: 'M7 10.5 L13 4.5 L16 7.5 L10 13.5 Z M7 10.5 L5.5 14.5 L6 15 L10 13.5 M3.5 17 L16.5 17',
+    eraser: 'M3.5 12.5 L10.5 5.5 L16.5 11.5 L11.5 16.5 L7.5 16.5 Z M7 9 L13 15 M7.5 16.5 L16.5 16.5',
+    line: 'M3.5 16.5 L16.5 3.5',
+    arrow: 'M3.5 16.5 L16.5 3.5 M9 3.5 L16.5 3.5 L16.5 11',
+    rectangle: 'M3.5 4.5 L16.5 4.5 L16.5 15.5 L3.5 15.5 Z',
+    ellipse: 'M17 10 A7 5.5 0 1 1 3 10 A7 5.5 0 1 1 17 10',
+    text: 'M4.5 4 L15.5 4 M10 4 L10 16 M7.5 16 L12.5 16',
+    magnifier: 'M12.5 12.5 L16.5 16.5 M14 8.5 A5.5 5.5 0 1 1 3 8.5 A5.5 5.5 0 1 1 14 8.5',
+    fade: 'M16 11 A6 6 0 1 1 4 11 A6 6 0 1 1 16 11 M10 8 L10 11 L12.5 12.5 M8 3 L12 3 M10 3 L10 5',
+    undo: 'M3.5 9.5 L3.5 4.5 M3.5 9.5 L8.5 9.5 M3.5 9.5 C5.5 6, 9 4.5, 12 5.5 C16 7, 17 12.5, 13.5 15.2 C11.5 16.8, 8.5 16.8, 6.5 15.5',
+    redo: 'M16.5 9.5 L16.5 4.5 M16.5 9.5 L11.5 9.5 M16.5 9.5 C14.5 6, 11 4.5, 8 5.5 C4 7, 3 12.5, 6.5 15.2 C8.5 16.8, 11.5 16.8, 13.5 15.5',
+    clear: 'M3.5 5.5 L16.5 5.5 M7.5 5.5 L7.5 3.5 L12.5 3.5 L12.5 5.5 M5.5 5.5 L6.5 16.5 L13.5 16.5 L14.5 5.5 M8.5 8.5 L8.5 13.5 M11.5 8.5 L11.5 13.5',
+    clearmenu: 'M2.5 8.5 L5 11 L7.5 8.5',
+    board: 'M3.5 4 L16.5 4 L16.5 13 L3.5 13 Z M10 13 L10 16.5 M6.5 16.5 L13.5 16.5',
+    capture: 'M3.5 7 L7 7 L8.5 4.5 L11.5 4.5 L13 7 L16.5 7 L16.5 15.5 L3.5 15.5 Z M12.75 11 A2.75 2.75 0 1 1 7.25 11 A2.75 2.75 0 1 1 12.75 11',
+    menu: 'M3.5 5.5 L16.5 5.5 M3.5 10 L16.5 10 M3.5 14.5 L16.5 14.5',
   };
 
   function glyph(id, state) {
     const g = svg('g', { class: 'tb-glyph' });
     switch (id) {
       case 'main':
+        /* The brand's 16 px mark (brand.md, 6.4) in one colour: a disc with a short arc that ends in a dot. */
         g.append(svg('circle', { cx: 10, cy: 10, r: 8, class: 'tb-main-disc' }),
           svg('path', { d: 'M6.5 12.5 C6.5 8.5, 10.5 6, 12.5 8 C13.8 9.4, 13.8 11, 13.5 12.2', class: 'tb-main-arc' }),
           svg('circle', { cx: 13.5, cy: 12.5, r: 1.8, class: 'tb-main-dot' }));
@@ -581,12 +694,46 @@
     return g;
   }
 
+  /* The length of an item along the toolbar, its gap included. */
+  const cellLength = id => (id === '|' ? TB.sep : id === 'clearmenu' ? TB.narrow + TB.gap : CELL);
+
+  /* Lines of tools: a new line starts when the next item would pass the screen's edge, as in the build's tools panel,
+     which may be as long as the monitor less room for the main icon, the padding and a margin. */
+  function toolLines(state) {
+    if (state.collapsed) return [];
+    const limit = (state.vertical ? 400 : 640) - TB.reserve;
+    const lines = [[]];
+    let used = 0;
+    for (const id of TOOLBAR_ITEMS.slice(1)) {
+      const line = lines[lines.length - 1];
+      if (line.length && used + cellLength(id) > limit) { lines.push([id]); used = cellLength(id); continue; }
+      line.push(id);
+      used += cellLength(id);
+    }
+    return lines;
+  }
+
+  /* state: x and y (the top centre the toolbar asks for), vertical, collapsed, hidden, theme ('light', 'dark', 'auto'),
+     draw (draw mode: the glow, and the mode button on), active (the active tool's id), on ({ id: true } for an accent
+     glyph, { id: 'tint' } for a tinted button, as the halo has when it is on), colour and width (shown on their buttons). */
   function toolbar(h, opts) {
+    addGlow(h);
     const g = svg('g', { class: 'tb tb-auto' });
     h.sc.overlay.append(g);
-    const state = Object.assign({ x: 320, y: 6, scale: 0.6, vertical: false, collapsed: false, hidden: false, theme: 'auto', active: null, draw: false, colour: INK.pen, width: PEN_WIDTH, on: {} }, opts);
+    const state = Object.assign({ x: 320, y: 6, vertical: false, collapsed: false, hidden: false, theme: 'auto', active: null, draw: false, colour: INK.pen, width: PEN_WIDTH, on: {} }, opts);
     const centres = new Map();
-    let size = { w: 0, h: 0 };
+    let box = { x: 0, y: 0, w: 0, h: 0 };
+
+    /* A button: the build's tint when it is on, an outline in the accent with it, and the glyph. */
+    function addButton(id, x, y, w, hgt) {
+      const tint = state.active === id || state.on[id] === 'tint' ? 'tb-active' : id === 'mode' && state.draw ? 'tb-mode-on' : '';
+      if (tint) g.append(svg('rect', { x, y, width: w, height: hgt, rx: 5, class: tint }), svg('rect', { x: x + 0.75, y: y + 0.75, width: w - 1.5, height: hgt - 1.5, rx: 4.25, class: 'tb-edge' }));
+      const node = glyph(id, state);
+      node.setAttribute('transform', `translate(${x + (w - (id === 'clearmenu' ? TB.narrow : TB.button)) / 2} ${y + (hgt - TB.button) / 2})`);
+      if (state.on[id] === true || (id === 'mode' && state.draw)) node.classList.add('tb-accent');
+      g.append(node);
+      centres.set(id, P(x + w / 2, y + hgt / 2));
+    }
 
     function render() {
       g.replaceChildren();
@@ -594,37 +741,41 @@
       g.setAttribute('class', `tb tb-${state.theme}`);
       if (state.hidden) { g.setAttribute('display', 'none'); return; }
       g.removeAttribute('display');
-      const items = state.collapsed ? ['main'] : TOOLBAR_ITEMS;
-      const slots = [];
-      let along = TB.pad;
-      for (const id of items) {
-        const w = id === '|' ? TB.sep : id === 'clearmenu' ? TB.narrow : TB.size;
-        slots.push({ id, at: along, w });
-        along += w + (id === '|' ? 0 : TB.gap);
-      }
-      along += TB.pad - TB.gap;
-      const thickness = TB.pad * 2 + TB.size;
-      size = state.vertical ? { w: thickness, h: along } : { w: along, h: thickness };
-      g.append(svg('rect', { class: 'tb-shell', width: size.w, height: size.h, rx: 8, filter: state.draw ? `url(#${h.glowId})` : null }));
-      for (const slot of slots) {
-        const x = state.vertical ? TB.pad : slot.at, y = state.vertical ? slot.at : TB.pad;
-        if (slot.id === '|') {
-          g.append(state.vertical
-            ? svg('line', { class: 'tb-sep', x1: TB.pad + 3, y1: y + 3, x2: TB.pad + TB.size - 3, y2: y + 3 })
-            : svg('line', { class: 'tb-sep', x1: x + 3, y1: TB.pad + 3, x2: x + 3, y2: TB.pad + TB.size - 3 }));
-          continue;
+      const lines = toolLines(state);
+      const v = state.vertical;
+      /* Along the toolbar, then across: the main icon, then each line of tools; positions inside the shell. */
+      const longest = Math.max(0, ...lines.map(line => line.reduce((sum, id) => sum + cellLength(id), 0)));
+      const across = TB.pad * 2 + CELL * Math.max(1, lines.length);
+      const along = TB.pad * 2 + CELL + longest;
+      const w = v ? across : along, hgt = v ? along : across;
+      g.append(svg('rect', { class: 'tb-shell', width: w, height: hgt, rx: 7, filter: state.draw ? `url(#${h.glowId})` : null }));
+      const at = (a, c) => (v ? [c, a] : [a, c]);
+      const [mx, my] = at(TB.pad + TB.gap / 2, (across - TB.button) / 2);
+      addButton('main', mx, my, TB.button, TB.button);
+      lines.forEach((line, n) => {
+        let a = TB.pad + CELL;
+        const c = TB.pad + n * CELL;
+        for (const id of line) {
+          const length = cellLength(id);
+          if (id === '|') {
+            const mid = a + TB.sep / 2, inset = 4.5;
+            const [x1, y1] = at(mid, c + inset), [x2, y2] = at(mid, c + CELL - inset);
+            g.append(svg('line', { class: 'tb-sep', x1, y1, x2, y2 }));
+          } else {
+            const [x, y] = at(a + TB.gap / 2, c + TB.gap / 2);
+            const [bw, bh] = at(length - TB.gap, TB.button);
+            addButton(id, x, y, bw, bh);
+          }
+          a += length;
         }
-        const bw = state.vertical ? TB.size : slot.w, bh = state.vertical ? slot.w : TB.size;
-        const tone = state.active === slot.id || state.on[slot.id] === 'tint' ? 'tb-active' : 'tb-plain';
-        g.append(svg('rect', { x, y, width: bw, height: bh, rx: 5, class: tone }));
-        const node = glyph(slot.id, state);
-        const gw = slot.id === 'clearmenu' ? TB.narrow : TB.size;
-        node.setAttribute('transform', `translate(${x + (bw - gw) / 2} ${y + (bh - TB.size) / 2})`);
-        if (state.on[slot.id] === true || (slot.id === 'mode' && state.draw)) node.classList.add('tb-accent');
-        g.append(node);
-        centres.set(slot.id, P(x + bw / 2, y + bh / 2));
-      }
-      g.setAttribute('transform', `translate(${round(state.x - (size.w * state.scale) / 2)} ${round(state.y)}) scale(${state.scale})`);
+      });
+      /* Clamped onto the screen, as the build clamps its toolbar onto the monitor (spec 6.9). */
+      box = {
+        x: Math.max(TB.margin, Math.min(640 - TB.margin - w, state.x - w / 2)),
+        y: Math.max(TB.margin, Math.min(400 - TB.margin - hgt, state.y)),
+        w, h: hgt,
+      };
+      g.setAttribute('transform', `translate(${round(box.x)} ${round(box.y)})`);
     }
 
     render();
@@ -634,10 +785,9 @@
       /* Screen coordinates of a button's centre, for a pointer to go to. */
       centre(id) {
         const c = centres.get(id);
-        if (!c) return P(state.x, state.y);
-        return P(state.x - (size.w * state.scale) / 2 + c.x * state.scale, state.y + c.y * state.scale);
+        return c ? P(box.x + c.x, box.y + c.y) : P(box.x + box.w / 2, box.y + box.h / 2);
       },
-      bottom() { return state.y + size.h * state.scale; },
+      bottom() { return box.y + box.h; },
     };
   }
 
@@ -1086,7 +1236,7 @@
       h.sc = screen(h.svg, 'colour');
       addGlow(h);
       h.doc = new Doc(h.sc.marks);
-      h.tb = toolbar(h, { draw: true, scale: 0.75, active: 'pen' });
+      h.tb = toolbar(h, { draw: true, active: 'pen' });
       addPointer(h, P(400, 240));
       h.sample = null;
       const apply = () => {
@@ -1173,7 +1323,7 @@
       h.sc = screen(h.svg, 'toolbar');
       addGlow(h);
       h.doc = new Doc(h.sc.marks);
-      h.tb = toolbar(h, { draw: true, scale: 0.85, y: 8 });
+      h.tb = toolbar(h, { draw: true, y: 8 });
       addPointer(h, P(400, 260));
       h.buttons = {};
       const place = async (name, changes, text) => { await stop(h); h.tb.set(changes); h.say(text); shown(h); };
@@ -1446,25 +1596,7 @@
     function palette() { return SCREEN_COLOURS[darkScheme.matches ? 'dark' : 'light']; }
 
     function paintScreen(c, k) {
-      const p = palette();
-      const r = (b, cls, radius = 0) => { c.fillStyle = p[cls]; roundRect(c, b.x, b.y, b.w, b.h, radius); };
-      r({ x: 0, y: 0, w: W, h: H }, 'sc-bg');
-      r(LAYOUT.side, 'sc-side'); r(LAYOUT.bar, 'sc-bar');
-      LAYOUT.menus.forEach(b => r(b, 'sc-block', 3));
-      LAYOUT.sideLines.forEach(b => r(b, 'sc-line', 5));
-      LAYOUT.lines.forEach(b => r(b, 'sc-line', 5));
-      r(LAYOUT.panel, 'sc-panel', 8);
-      LAYOUT.panelLines.forEach(b => r(b, 'sc-line', 5));
-      r(LAYOUT.button, 'sc-button', 6);
-      r(LAYOUT.buttonLabel, 'sc-button-label', 3);
-      if (k) {
-        /* The saved picture says what it is. */
-        c.font = '600 13px system-ui, "Segoe UI", sans-serif';
-        const text = 'Demonstration';
-        const tw = c.measureText(text).width;
-        c.fillStyle = p.label; c.globalAlpha = 0.85; roundRect(c, 10, 10, tw + 16, 22, 4); c.globalAlpha = 1;
-        c.fillStyle = p.labelText; c.textBaseline = 'middle'; c.fillText(text, 18, 21);
-      }
+      paintStandIn(c, k);
     }
 
     function roundRect(c, x, y, w, h, r) {

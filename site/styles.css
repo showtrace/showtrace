@@ -87,19 +87,23 @@
   --action-bg: var(--trace-teal-deep);
   --action-text: var(--paper);
 
-  /* The stand-in screen: greys without a hue, so that it never reads as a screenshot. */
-  --screen-bg: #ECECEC;
-  --screen-bar: #E0E0E0;
-  --screen-side: #E4E4E4;
-  --screen-block: #CDCDCD;
-  --screen-line: #D4D4D4;
-  --screen-panel: #F4F4F4;
-  --screen-button: #BDBDBD;
-  --screen-button-label: #8E8E8E;
-  --screen-pressed: #9E9E9E;
-  --screen-dropdown: #F6F6F6;
-  --screen-frame: #9A9A9A;
-  --lens-frame: rgba(26, 31, 36, 0.45);
+  /* The stand-in screen: greys without a hue, so that it never reads as a screenshot. The surfaces a mark is drawn on
+     (bg, bar, side, panel, dropdown) keep the pen red #FF3B30 and the laser red at 3:1 or more in both schemes (WCAG
+     1.4.11); the lens frame and the monitor frames have 3:1 against them. */
+  --screen-bg: #F7F7F7;
+  --screen-bar: #EEEEEE;
+  --screen-side: #F0F0F0;
+  --screen-edge: #DCDCDC;
+  --screen-block: #CACACA;
+  --screen-line: #DADADA;
+  --screen-panel: #FFFFFF;
+  --screen-shade: #D4D4D4;
+  --screen-button: #C7C7C7;
+  --screen-button-label: #8C8C8C;
+  --screen-pressed: #A9A9A9;
+  --screen-dropdown: #FFFFFF;
+  --screen-frame: #858585;
+  --lens-frame: rgba(26, 31, 36, 0.62);
   --demo-label-bg: rgba(26, 31, 36, 0.78);
   --demo-label-text: #FFFFFF;
 
@@ -155,18 +159,20 @@
     --action-bg: var(--trace-teal-light);
     --action-text: var(--slate);
 
-    --screen-bg: #2E2E2E;
-    --screen-bar: #383838;
-    --screen-side: #333333;
-    --screen-block: #4A4A4A;
-    --screen-line: #444444;
-    --screen-panel: #363636;
+    --screen-bg: #2B2B2B;
+    --screen-bar: #323232;
+    --screen-side: #303030;
+    --screen-edge: #3E3E3E;
+    --screen-block: #545454;
+    --screen-line: #464646;
+    --screen-panel: #333333;
+    --screen-shade: #1F1F1F;
     --screen-button: #5A5A5A;
-    --screen-button-label: #8A8A8A;
-    --screen-pressed: #777777;
-    --screen-dropdown: #3C3C3C;
-    --screen-frame: #6B6B6B;
-    --lens-frame: rgba(238, 238, 238, 0.5);
+    --screen-button-label: #8E8E8E;
+    --screen-pressed: #747474;
+    --screen-dropdown: #363636;
+    --screen-frame: #767676;
+    --lens-frame: rgba(238, 238, 238, 0.55);
     --demo-label-bg: rgba(238, 238, 238, 0.85);
     --demo-label-text: #1A1F24;
   }
@@ -995,20 +1001,24 @@ kbd {
 
 /* The stand-in screen inside an SVG */
 
+/* A shape of class sc-NAME is filled with --screen-NAME; the sandbox's canvas reads the same tokens. */
 .sc-bg { fill: var(--screen-bg); }
 .sc-bar { fill: var(--screen-bar); }
 .sc-side { fill: var(--screen-side); }
+.sc-edge { fill: var(--screen-edge); }
 .sc-block { fill: var(--screen-block); }
 .sc-line { fill: var(--screen-line); }
 .sc-panel { fill: var(--screen-panel); }
+.sc-shade { fill: var(--screen-shade); }
 .sc-button { fill: var(--screen-button); }
 .sc-button.sc-pressed { fill: var(--screen-pressed); }
 .sc-button-label { fill: var(--screen-button-label); }
-.sc-dropdown { fill: var(--screen-dropdown); stroke: var(--screen-block); stroke-width: 1; }
+.sc-dropdown { fill: var(--screen-dropdown); }
 .mon-frame { fill: var(--screen-frame); }
 
+/* Text marks are Segoe UI in the build (spec 6.2); other systems show their own interface font. */
 .sc-text {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
   dominant-baseline: hanging;
 }
 
@@ -1047,24 +1057,34 @@ kbd {
   stroke-width: 2;
 }
 
-/* The stand-in toolbar. Light: #F7F7F8 at 95 percent, text #202124, accent #0A6B7A. Dark: #202124 at 94 percent,
-   text #EEEEEE, accent #4DD0E1. The draw-mode glow is #00E5FF in both (spec 6.9). Auto follows the visitor. */
+/* The stand-in toolbar, in the build's theme colours (spec 6.9). Light: #F7F7F8 at 95 percent, text #202124, accent
+   #0A6B7A, the active tint and the draw-mode button #00A3BF at 20 percent. Dark: #202124 at 94 percent, text #EEEEEE,
+   accent #4DD0E1, the tints #4DD0E1 at 25 and 33 percent. Separators, popup edges, swatch edges and fields as the
+   build's. The draw-mode glow is #00E5FF in both. Auto follows the visitor. */
 .tb,
 .tb-light {
   color: #202124;
   --tb-shell: rgba(247, 247, 248, 0.95);
+  --tb-solid: #F7F7F8;
   --tb-active: rgba(0, 163, 191, 0.2);
+  --tb-mode-on: rgba(0, 163, 191, 0.2);
   --tb-accent: #0A6B7A;
   --tb-sep: rgba(0, 0, 0, 0.15);
+  --tb-popup-edge: rgba(0, 0, 0, 0.15);
+  --tb-swatch-edge: rgba(0, 0, 0, 0.2);
   --tb-field: rgba(0, 0, 0, 0.08);
 }
 
 .tb-dark {
   color: #EEEEEE;
   --tb-shell: rgba(32, 33, 36, 0.94);
+  --tb-solid: #202124;
   --tb-active: rgba(77, 208, 225, 0.25);
+  --tb-mode-on: rgba(77, 208, 225, 0.33);
   --tb-accent: #4DD0E1;
   --tb-sep: rgba(255, 255, 255, 0.2);
+  --tb-popup-edge: rgba(255, 255, 255, 0.2);
+  --tb-swatch-edge: rgba(255, 255, 255, 0.2);
   --tb-field: rgba(255, 255, 255, 0.13);
 }
 
@@ -1072,26 +1092,34 @@ kbd {
   .tb-auto {
     color: #EEEEEE;
     --tb-shell: rgba(32, 33, 36, 0.94);
+    --tb-solid: #202124;
     --tb-active: rgba(77, 208, 225, 0.25);
+    --tb-mode-on: rgba(77, 208, 225, 0.33);
     --tb-accent: #4DD0E1;
     --tb-sep: rgba(255, 255, 255, 0.2);
+    --tb-popup-edge: rgba(255, 255, 255, 0.2);
+    --tb-swatch-edge: rgba(255, 255, 255, 0.2);
     --tb-field: rgba(255, 255, 255, 0.13);
   }
 }
 
 .tb-shell { fill: var(--tb-shell); }
-.tb-plain { fill: none; }
+.tb-popup { stroke: var(--tb-popup-edge); stroke-width: 1; }
 .tb-active { fill: var(--tb-active); }
+.tb-mode-on { fill: var(--tb-mode-on); }
+/* The build shows a button that is on by its tint alone, 1.2:1 to 1.8:1 against the shell. The stand-in adds an
+   outline in the accent, so that the state reads at card size with 3:1 or more (WCAG 1.4.11). */
+.tb-edge { fill: none; stroke: var(--tb-accent); stroke-width: 1.5; }
 .tb-sep { stroke: var(--tb-sep); stroke-width: 1; }
 .tb-accent { color: var(--tb-accent); }
 .tb-stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .tb-fill { fill: currentColor; }
 .tb-ring { fill: none; stroke: currentColor; stroke-width: 1.5; opacity: 0.8; }
-.tb-main-disc { fill: #0E8192; }
-.tb-main-arc { fill: none; stroke: #FFFFFF; stroke-width: 1.75; stroke-linecap: round; }
-.tb-main-dot { fill: #FFFFFF; }
-.tb-swatch { stroke: var(--tb-sep); stroke-width: 1; }
-.tb-swatch-on { stroke: var(--tb-accent); stroke-width: 2.5; }
+.tb-main-disc { fill: currentColor; }
+.tb-main-arc { fill: none; stroke: var(--tb-solid); stroke-width: 1.75; stroke-linecap: round; }
+.tb-main-dot { fill: var(--tb-solid); }
+.tb-swatch { stroke: var(--tb-swatch-edge); stroke-width: 1; }
+.tb-swatch-on { stroke: currentColor; stroke-width: 2; }
 .tb-textbutton { fill: var(--tb-field); }
 .tb-field { fill: var(--tb-field); }
 .tb-text { fill: currentColor; font-size: 13px; font-family: system-ui, "Segoe UI", sans-serif; }
