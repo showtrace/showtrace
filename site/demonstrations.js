@@ -500,36 +500,41 @@
     return node;
   }
 
-  /* The laser (spec 6.6): a red dot at the pointer, a trail whose segments narrow and fade over 1.5 s, no ink. */
+  /* The laser (spec 6.6): a red dot at the pointer, a trail whose segments narrow and fade over 1.5 s, no ink. As in the
+     build, a segment ages from the moment the pointer was at its start, and a point is added only when the pointer
+     moves. Each segment is drawn once; a frame only changes the width and opacity of the ones still fading. */
   async function laser(run, h, points, ms) {
     const g = extra(h, underPointer(h, svg('g', { class: 'laser' })));
-    const trail = svg('g');
+    const trail = svg('g', { stroke: INK.laser, 'stroke-linecap': 'round' });
     const dot = svg('circle', { r: LASER.dot / 2, fill: INK.laser });
     g.append(trail, dot);
     h.pointer.setAttribute('visibility', 'hidden');
-    const samples = [];
-    const redraw = now => {
-      trail.replaceChildren();
-      for (let i = 1; i < samples.length; i++) {
-        const strength = Math.max(0, 1 - (now - samples[i - 1].t) / LASER.trailMs);
-        if (strength <= 0) continue;
-        trail.append(svg('line', {
-          x1: round(samples[i - 1].x), y1: round(samples[i - 1].y), x2: round(samples[i].x), y2: round(samples[i].y),
-          stroke: INK.laser, 'stroke-width': round(LASER.trail * (0.3 + 0.7 * strength)), 'stroke-linecap': 'round', opacity: round(strength),
-        }));
+    const segments = [];
+    let last = null;
+    const age = now => {
+      while (segments.length && now - segments[0].t >= LASER.trailMs) segments.shift().line.remove();
+      for (const s of segments) {
+        const strength = 1 - (now - s.t) / LASER.trailMs;
+        attr(s.line, { 'stroke-width': round(LASER.trail * (0.3 + 0.7 * strength)), opacity: round(strength) });
       }
-      while (samples.length && now - samples[0].t >= LASER.trailMs) samples.shift();
     };
     const n = points.length;
     await run.tween(ms, t => {
       const p = points[Math.round(t * (n - 1))];
       const now = performance.now();
-      samples.push({ x: p.x, y: p.y, t: now });
+      if (!last || p.x !== last.x || p.y !== last.y) {
+        if (last) {
+          const line = svg('line', { x1: round(last.x), y1: round(last.y), x2: round(p.x), y2: round(p.y) });
+          trail.append(line);
+          segments.push({ line, t: last.t });
+        }
+        last = { x: p.x, y: p.y, t: now };
+      }
       attr(dot, { cx: round(p.x), cy: round(p.y) });
       h.at = p;
-      redraw(now);
+      age(now);
     });
-    await run.tween(LASER.trailMs + 50, () => redraw(performance.now()), linear);
+    await run.tween(LASER.trailMs + 50, () => age(performance.now()), linear);
     return g;
   }
 
