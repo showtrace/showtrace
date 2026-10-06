@@ -26,12 +26,11 @@ It reads the site for keyboard characters only (no em dashes, curly quotes, arro
 
 ## Publish
 
-An owner does this; a session never publishes.
+The public home is `https://github.com/showtrace/showtrace`, in the GitHub organisation `showtrace`. GitHub Pages serves `site/` at `https://showtrace.github.io/showtrace/`, with GitHub Actions as its source. Both were set up on 2026-10-06 on the owners' word; a session publishes nothing on its own.
 
-1. Create a public repository on GitHub and push `main` of this repository to it. Which account or organisation holds it is the owners' choice.
-2. In the repository, open Settings, then Pages, and under Source choose GitHub Actions.
-3. Push, or start the workflow from the Actions tab. The workflow runs the checks and deploys `site/`. The address of the page is shown on the run, under the `github-pages` environment.
-4. A custom domain comes later, once the owners have chosen one. Until then the site has no `CNAME` file.
+- Every push to `main` runs the checks and deploys. The workflow can also be started from the Actions tab.
+- A push that changes the workflow file needs a GitHub token with the `workflow` scope. With the GitHub CLI: `gh auth refresh -h github.com -s workflow`.
+- A custom domain comes later, once the owners have chosen one. Until then the site has no `CNAME` file and the address ends in the repository's name.
 
 ## What waits
 
