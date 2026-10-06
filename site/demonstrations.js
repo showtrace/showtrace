@@ -1384,54 +1384,82 @@
     h.end(`The pen: ${h.colour}, ${h.width} px. The sample stroke shows it; strokes already drawn keep theirs.`, marksAlt(h));
   }
 
-  /* 9. The toolbar (spec 6.9). */
+  /* 9. The toolbar (spec 6.9). The vertical toolbar stands at the right edge, where its two columns leave the
+     "Demonstration" label free. */
+  const TOOLBAR_RIGHT = { x: 616, y: 8 };
+  const VERTICAL_LINE = 'Vertical. On this small screen it wraps into a second column, as the build\'s does on a monitor too short for it.';
+  const AUTO_LINE = 'Auto follows the Windows app theme. Here it follows your browser.';
+
   const toolbarDemo = {
     build(card, mount) {
       const h = stage(card, mount, { alt: 'A stand-in screen with the toolbar. The demonstration shows it horizontal, vertical, collapsed and hidden, in the light, dark and auto themes.' });
       h.sc = screen(h.svg, 'toolbar');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
       h.tb = toolbar(h, { draw: true, y: 8 });
       addPointer(h, P(400, 260));
       h.buttons = {};
-      const place = async (name, changes, text) => { await stop(h); h.tb.set(changes); h.say(text); shown(h); };
-      const shapes = [
-        ['horizontal', 'Horizontal', { vertical: false, collapsed: false, hidden: false, x: 320, y: 8 }, 'Horizontal, at the top centre of the monitor.'],
-        ['vertical', 'Vertical', { vertical: true, collapsed: false, hidden: false, x: 40, y: 50 }, 'Vertical.'],
-        ['collapsed', 'Collapsed', { collapsed: true, hidden: false }, 'Collapsed to its main icon. A click expands it; a drag moves it.'],
-        ['hidden', 'Hidden', { hidden: true }, 'Hidden, in ghost mode. A click on the tray icon brings it back.'],
-      ];
-      h.controls.append(group('Toolbar', ...shapes.map(([key, label, changes, text]) => {
-        const b = button(label, () => place(key, changes, text), { 'aria-pressed': 'false' });
-        h.buttons[key] = b;
-        return b;
-      })));
-      h.controls.append(group('Theme', ...[['light', 'Light', 'Light theme.'], ['dark', 'Dark', 'Dark theme.'], ['auto', 'Auto', 'Auto follows the Windows app theme. Here it follows your browser.']].map(([key, label, text]) => {
-        const b = button(label, () => place(key, { theme: key }, text), { 'aria-pressed': 'false' });
-        h.buttons[key] = b;
-        return b;
-      })));
+      const place = async (changes, text) => { await stop(h); h.tb.set(changes); shown(h); h.end(text, toolbarAlt(h)); };
+      const toggles = (label, items) => group(label, ...items.map(([key, name, changes, text]) => {
+        h.buttons[key] = button(name, () => place(changes, text), { 'aria-pressed': 'false' });
+        return h.buttons[key];
+      }));
+      h.controls.append(
+        toggles('Toolbar', [
+          ['horizontal', 'Horizontal', { vertical: false, collapsed: false, hidden: false, x: 320, y: 8 }, 'Horizontal, at the top centre of the monitor.'],
+          ['vertical', 'Vertical', Object.assign({ vertical: true, collapsed: false, hidden: false }, TOOLBAR_RIGHT), VERTICAL_LINE],
+          ['collapsed', 'Collapsed', { collapsed: true, hidden: false }, 'Collapsed to its main icon. A click expands it; a drag moves it.'],
+          ['hidden', 'Hidden', { hidden: true }, 'Hidden, in ghost mode. A click on the tray icon brings it back.'],
+        ]),
+        toggles('Theme', [
+          ['light', 'Light', { theme: 'light' }, 'Light theme.'],
+          ['dark', 'Dark', { theme: 'dark' }, 'Dark theme.'],
+          ['auto', 'Auto', { theme: 'auto' }, AUTO_LINE],
+        ]));
       return h;
     },
     reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ vertical: false, collapsed: false, hidden: false, theme: 'auto', draw: true, x: 320, y: 8 }); movePointer(h, P(400, 260)); shown(h); },
     async play(run, h) {
-      const step = async (changes, text, ms) => { h.tb.set(changes); shown(h); h.say(text); await run.pause(ms); };
-      await step({}, 'Horizontal, at the top centre of the primary monitor. In draw mode its border glows.', 1400);
-      await step({ vertical: true, x: 40, y: 50 }, 'Vertical.', 1200);
-      await step({ collapsed: true }, 'Collapsed to its main icon. A click expands it; a drag moves it.', 1200);
-      await step({ hidden: true }, 'Hidden, in ghost mode. A click on the tray icon brings it back.', 1200);
-      await step({ hidden: false, collapsed: false, vertical: false, x: 320, y: 8 }, 'Back, where you left it.', 1000);
-      await step({ theme: 'light' }, 'Light theme.', 1000);
-      await step({ theme: 'dark' }, 'Dark theme.', 1000);
-      await step({ theme: 'auto' }, 'Auto follows the Windows app theme. Here it follows your browser.', 600);
-      h.end('The toolbar: horizontal, vertical, collapsed or hidden; light, dark or auto. It remembers where you leave it. The buttons below change it.');
+      const step = async (text, ms) => { shown(h); h.say(text); await run.pause(ms); };
+      await step('Horizontal, at the top centre of the primary monitor. In draw mode its border glows.', 1400);
+      await pick(run, h, 'menu', Object.assign({ vertical: true }, TOOLBAR_RIGHT));
+      await step(`${VERTICAL_LINE} Orientation is in its menu.`, 2200);
+      await pick(run, h, 'main', { collapsed: true });
+      await step('A click on its main icon collapses it to the icon.', 1200);
+      h.tb.set({ hidden: true });
+      await step('Ghost mode, in the tray menu, hides it.', 1200);
+      h.tb.set({ hidden: false });
+      await step('A click on the tray icon brings it back, where it was.', 1200);
+      await pick(run, h, 'main', { collapsed: false });
+      await step('A click on the main icon expands it again.', 1000);
+      await pick(run, h, 'menu', { vertical: false, x: 320, y: 8 });
+      await step('Horizontal again, from its menu.', 1000);
+      /* A drag on the main icon, into the gap between the lines and the panel of the stand-in. */
+      await pick(run, h, 'main');
+      h.say('A drag on the main icon moves it. It remembers where you leave it.');
+      await run.tween(800, t => { h.tb.set({ y: round(lerp(8, 160, t)) }); movePointer(h, h.tb.centre('main')); });
+      await run.pause(1000);
+      await pick(run, h, 'menu', { theme: 'light' });
+      await step('Light theme, from its menu.', 1000);
+      h.tb.set({ theme: 'dark' });
+      await step('Dark theme.', 1000);
+      h.tb.set({ theme: 'auto' });
+      await step(AUTO_LINE, 600);
+      h.end('Horizontal or vertical, collapsed or hidden; light, dark or auto. The buttons below change it. The stand-in toolbar is larger than a real one, with icons drawn for this page.', toolbarAlt(h));
     },
   };
 
+  /* The toggles below the stage show the toolbar's shape and theme. */
   function shown(h) {
     const s = h.tb.state;
     const shape = s.hidden ? 'hidden' : s.collapsed ? 'collapsed' : s.vertical ? 'vertical' : 'horizontal';
     for (const [key, b] of Object.entries(h.buttons)) b.setAttribute('aria-pressed', String(key === shape || key === s.theme));
+  }
+
+  function toolbarAlt(h) {
+    const s = h.tb.state;
+    if (s.hidden) return 'A stand-in screen. The toolbar is hidden, in ghost mode.';
+    const shape = s.collapsed ? 'collapsed to its main icon' : s.vertical ? 'vertical, in two columns at the right edge' : s.y > 40 ? 'horizontal, moved down from the top' : 'horizontal, at the top centre';
+    return `A stand-in screen with the toolbar ${shape}, in the ${s.theme} theme, its border glowing for draw mode.`;
   }
 
   /* 10 and 11. The trace (planned) and two authors (phase 2): steps added with the signature stroke (brand.md, 6.6 and 7). */
