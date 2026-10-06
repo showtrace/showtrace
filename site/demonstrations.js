@@ -1866,7 +1866,9 @@
       for (const n of names) rootStyle.setProperty(n, light.getPropertyValue(n));
       render();
       for (const n of names) rootStyle.removeProperty(n);
-      if (!rootStyle.length) document.documentElement.removeAttribute('style');
+      /* The root had no style attribute; Chromium writes one back from the emptied inline style when it is next
+         read, so it is read once before it goes. */
+      if (!rootStyle.length) { document.documentElement.getAttribute('style'); document.documentElement.removeAttribute('style'); }
     });
     window.addEventListener('afterprint', render);
     resize();
