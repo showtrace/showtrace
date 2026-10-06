@@ -485,8 +485,85 @@ kbd {
 
 /* The demonstration */
 
+/* The space of a demonstration is reserved before the script mounts it, so that a card does not grow when it does:
+   the stage at 16:10, the state line (--demo-lines), the controls (--demo-controls) and the thumbnail of the
+   screenshot demonstration (--demo-thumb). The heights were measured on 2026-10-06 with the font loaded, the longest
+   line of each play and each demonstration's own controls, in three bands of the stage's width; each is the most its
+   band needs, so a card may keep a little space but does not grow. When the lines or controls of a demonstration
+   change, measure again. Only with scripting on: without the script a card stands as text. */
+.feature-demo {
+  container-type: inline-size;
+  --demo-lines: 3;
+  --demo-controls: 2rem;
+  --demo-thumb: 0rem;
+}
+
+[data-demo="boards"] .feature-demo { --demo-controls: 6.75rem; }
+[data-demo="colour"] .feature-demo { --demo-controls: 9.5rem; }
+[data-demo="toolbar"] .feature-demo { --demo-controls: 7rem; }
+[data-demo="capture"] .feature-demo { --demo-thumb: 7.5rem; }
+
+@container (max-width: 29.99rem) {
+  .feature-demo::after,
+  .demo { --demo-lines: 4; }
+  [data-demo="fade"] .feature-demo::after,
+  [data-demo="fade"] .demo { --demo-controls: 4rem; }
+  [data-demo="colour"] .feature-demo::after,
+  [data-demo="colour"] .demo { --demo-controls: 11.25rem; }
+  [data-demo="toolbar"] .feature-demo::after,
+  [data-demo="toolbar"] .demo { --demo-controls: 9.25rem; }
+  [data-demo="capture"] .feature-demo::after,
+  [data-demo="capture"] .demo { --demo-thumb: 9.75rem; }
+}
+
+@container (max-width: 20.49rem) {
+  .feature-demo::after,
+  .demo { --demo-lines: 6; }
+  [data-demo="draw"] .feature-demo::after,
+  [data-demo="draw"] .demo { --demo-controls: 4.5rem; }
+  [data-demo="fade"] .feature-demo::after,
+  [data-demo="fade"] .demo { --demo-controls: 5.75rem; }
+  [data-demo="boards"] .feature-demo::after,
+  [data-demo="boards"] .demo { --demo-controls: 9rem; }
+  [data-demo="colour"] .feature-demo::after,
+  [data-demo="colour"] .demo { --demo-controls: 13rem; }
+  [data-demo="toolbar"] .feature-demo::after,
+  [data-demo="toolbar"] .demo { --demo-controls: 13.75rem; }
+  [data-demo="capture"] .feature-demo::after,
+  [data-demo="capture"] .demo { --demo-thumb: 11.25rem; }
+}
+
+@media (scripting: enabled) {
+  .feature-demo:empty::before {
+    content: "";
+    display: block;
+    aspect-ratio: 16 / 10;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    background: var(--screen-bg);
+  }
+
+  .feature-demo:empty::after {
+    content: "";
+    display: block;
+    height: calc(var(--space-3) + var(--demo-lines) * var(--leading) * var(--text-s) + var(--space-3) + var(--demo-controls));
+  }
+
+  [data-demo="capture"] .feature-demo:empty::after {
+    height: calc(var(--space-3) + var(--demo-lines) * var(--leading) * var(--text-s) + var(--space-3) + var(--demo-thumb) + var(--space-3) + var(--demo-controls));
+  }
+}
+
 .demo {
   margin: 0;
+}
+
+.demo .demo-state {
+  min-height: calc(var(--demo-lines) * var(--leading) * var(--text-s));
+}
+
+.demo .demo-controls {
+  min-height: var(--demo-controls);
 }
 
 .demo-stage {
@@ -519,11 +596,25 @@ kbd {
 }
 
 .demo-state {
+  display: grid;
   font-size: var(--text-s);
   color: var(--text-soft);
   min-height: 1.5em;
   margin: var(--space-3) 0 0;
   font-variant-numeric: tabular-nums;
+}
+
+/* Every line a play says lies, hidden, in the grid cell of the line that shows: the state line keeps the height of
+   the longest, and the card does not grow or shrink while the play runs. */
+.demo-state > *,
+.demo-state-fits > * {
+  grid-area: 1 / 1;
+}
+
+.demo-state-fits {
+  display: grid;
+  visibility: hidden;
+  user-select: none;
 }
 
 .demo-controls {
@@ -665,12 +756,20 @@ kbd {
   min-width: 2ch;
 }
 
+/* The screenshot of the capture demonstration, 10 rem wide, with its file name. It keeps its space (--demo-thumb)
+   while it is hidden, so that the card does not grow when it shows. */
 .demo-thumb {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   margin-top: var(--space-3);
+  min-height: var(--demo-thumb);
+}
+
+.demo-thumb[hidden] {
+  display: flex;
+  visibility: hidden;
 }
 
 .demo-thumb .thumb {

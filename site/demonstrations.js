@@ -276,12 +276,13 @@
     const root = svg('svg', { viewBox: '0 0 640 400', role: 'img', 'aria-label': opts.alt, focusable: 'false' });
     const stageBox = el('div', { class: 'demo-stage' }, root, el('span', { class: 'demo-label', text: opts.label || 'Demonstration' }));
     const line = el('span', { class: 'demo-state-line', text: START_LINE });
-    const state = el('p', { class: 'demo-state' }, line);
+    const fits = el('span', { class: 'demo-state-fits', 'aria-hidden': 'true' });
+    const state = el('p', { class: 'demo-state' }, line, fits);
     const controls = el('div', { class: 'demo-controls' });
     const live = el('div', { class: 'demo-live', role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' });
     mount.append(el('figure', { class: 'demo' }, stageBox, state, controls, live));
     const h = { card, box: stageBox, svg: root, state, controls, extras: [], at: P(320, 200), run: null };
-    h.frame = { line, live, ended: '', played: false };
+    h.frame = { line, fits, live, lines: null, ended: '', played: false };
     h.say = (...parts) => say(h, parts);
     h.end = (text, alt = text) => end(h, text, alt);
     return h;
@@ -292,14 +293,17 @@
   const textOf = parts => parts.map(part => (typeof part === 'string' ? part : part.key)).join('');
 
   /* A line in the state line. During a play it is shown and not announced: the live region says only that a play
-     starts and how it ends. Outside a play only a control says something, so then the line is announced too. */
+     starts and how it ends. Outside a play only a control says something, so then the line is announced too. In the
+     rehearsal of a play the line is only kept. */
   function say(h, parts) {
+    if (h.frame.lines) { h.frame.lines.push(parts); return; }
     h.frame.line.replaceChildren(...nodesOf(parts));
     if (!h.run) speak(h, textOf(parts));
   }
 
   /* The end line. It is shown, and alt becomes the text alternative of the stand-in screen. */
   function end(h, text, alt) {
+    if (h.frame.lines) { h.frame.lines.push([text]); return; }
     h.frame.line.replaceChildren(text);
     h.svg.setAttribute('aria-label', alt);
     h.frame.ended = text;
@@ -1256,7 +1260,7 @@
     if (!speaks) speak(h, '');
     else if (!run.instant) speak(h, `${f.name}: the demonstration is playing.`);
     return (async () => {
-      f.demo.reset(h);
+      await rehearse(h);
       await f.demo.play(run, h);
       if (speaks) speak(h, `${f.name}: the demonstration has ${how.stopped ? 'stopped' : 'ended'}. ${f.ended}`);
     })()
@@ -1276,6 +1280,31 @@
     const run = h.run;
     h.run = null;
     if (run) run.cancel();
+  }
+
+  /* The rehearsal: the play once as an instant run, from the start state back to the start state, keeping the lines
+     it says. The state line then holds them all, hidden, in one grid cell, so that it takes the height of the
+     longest and the card does not grow or shrink while the play runs. An instant run ends before the browser
+     paints, so nobody sees the rehearsal. */
+  async function rehearse(h) {
+    const f = h.frame;
+    const lines = [];
+    f.lines = lines;
+    try {
+      f.demo.reset(h);
+      await f.demo.play(new Run(true), h);
+    } finally {
+      f.lines = null;
+    }
+    f.demo.reset(h);
+    const seen = new Set();
+    f.fits.replaceChildren();
+    for (const parts of [[START_LINE], ...lines]) {
+      const text = textOf(parts);
+      if (seen.has(text)) continue;
+      seen.add(text);
+      f.fits.append(el('span', null, ...nodesOf(parts)));
+    }
   }
 
   /* A play starts once, when this share of its stage is in view, and stops at its end state when the stage has left
@@ -1302,13 +1331,14 @@
       h.frame.demo = demo;
       h.frame.name = card.querySelector('h3')?.textContent.trim() || 'Demonstration';
       h.controls.prepend(playControl(h));
-      demo.reset(h);
     } catch (error) {
       fail(card, error, h);
       return;
     }
-    mounted.push(h);
-    if (observer) observer.observe(h.box); else start(h, { auto: true });
+    rehearse(h).then(() => {
+      mounted.push(h);
+      if (observer) observer.observe(h.box); else start(h, { auto: true });
+    }, error => fail(card, error, h));
   }
 
   /* A demonstration whose build, reset or play throws is taken out: its card keeps its text, the other
