@@ -495,6 +495,15 @@ kbd {
   overflow: visible;
 }
 
+/* The 404 page: what happened and the way back. */
+.not-found {
+  padding: clamp(2.5rem, 7vw, 5.5rem) 0 clamp(3rem, 9vw, 7rem);
+}
+
+.not-found p {
+  max-width: var(--measure);
+}
+
 /* Sections */
 
 .section {
@@ -1202,7 +1211,7 @@ kbd {
   max-width: var(--measure);
 }
 
-.site-footer p:last-child {
+.site-footer .to-top {
   margin: var(--space-4) 0 0;
 }
 

@@ -31,6 +31,12 @@ The page preloads the upright file; the italic one is not preloaded, because the
 - The sharing tags (Open Graph, and the Twitter card that reads them) give a chat or a social site the title, the description and `site/og-image.png`, 1200 by 630: the logo of the header in the brand teal on paper, with the hero line. A logo and words, no marks, so that it never reads as a screenshot. A browser that shows the page never loads it; only a site that previews a shared link does.
 - The picture is rendered from `tools/og-image.svg`, which loads the font from `site/fonts/`. To render it again, after the logo or the line changes: serve the repository's root folder with any static file server and take a 1200 by 630 screenshot of the SVG with a headless Chromium browser, for example `msedge --headless=new --window-size=1200,630 --force-device-scale-factor=1 --screenshot=site\og-image.png http://localhost:8000/tools/og-image.svg`.
 
+## The 404 page
+
+`site/404.html` is the page GitHub Pages serves for an address under the site that does not exist, at any depth. So it names its files from the root of the public address (`/showtrace/styles.css`), and the check holds those paths to that address. It loads no script, says what happened and links to the front page. A preview of `site/` at a server's root shows it without its styles; served under `/showtrace/`, it looks as it does on Pages.
+
+There is no `robots.txt`: crawlers read one only at the root of a host, and Pages serves this site under `/showtrace/`, so one here would not be read. It can come with a domain.
+
 ## Preview
 
 Serve `site/` from any static file server and open it in a browser, or open `site/index.html` from disk: every file the page loads is named by a relative path. From disk the browser may refuse the font and the script under `file:`; a local server shows the page as Pages serves it.

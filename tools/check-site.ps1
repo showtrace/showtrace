@@ -1,5 +1,6 @@
 # Checks what a machine can check of the Showtrace website before it is published.
-#   1. Files: the pages, the stylesheet, the script, the logo, the favicon and the self-hosted font exist.
+#   1. Files: the pages (the front page and the 404 page), the stylesheet, the script, the logo, the favicon and the
+#      self-hosted font exist.
 #   2. Typography: no em dash, en dash, curly quote, arrow or ellipsis in any text file, as a character or as an
 #      HTML entity. Keyboard characters only.
 #   3. Words: none of the words the brand guide avoids is in a page or in the script, the old prototype name
@@ -33,7 +34,7 @@ $problems = New-Object System.Collections.Generic.List[string]
 $basePath = ([uri]$Address).AbsolutePath
 
 # 1. Files.
-$required = @('site/index.html', 'site/styles.css', 'site/demonstrations.js', 'site/logo.svg', 'site/favicon.svg',
+$required = @('site/index.html', 'site/404.html', 'site/styles.css', 'site/demonstrations.js', 'site/logo.svg', 'site/favicon.svg',
     'site/fonts/AtkinsonHyperlegibleNext-wght.woff2', 'site/fonts/AtkinsonHyperlegibleNext-Italic-wght.woff2', 'site/fonts/OFL.txt')
 foreach ($item in $required) {
     if (-not (Test-Path (Join-Path $root $item))) { $problems.Add("$item is missing") }
