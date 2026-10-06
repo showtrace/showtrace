@@ -311,15 +311,16 @@
 
     exec(command) { command.redo(); this.done.push(command); this.undone = []; }
 
+    /* Each command names the items it touches, as the build's commands do, so that expiry can find it. */
     add(node) {
-      this.exec({ redo: () => this.layer.append(node), undo: () => node.remove() });
+      this.exec({ nodes: [node], redo: () => this.layer.append(node), undo: () => node.remove() });
       return node;
     }
 
     clear() {
       const nodes = [...this.layer.children];
       if (nodes.length === 0) return false;
-      this.exec({ redo: () => nodes.forEach(n => n.remove()), undo: () => nodes.forEach(n => this.layer.append(n)) });
+      this.exec({ nodes, redo: () => nodes.forEach(n => n.remove()), undo: () => nodes.forEach(n => this.layer.append(n)) });
       return true;
     }
 
@@ -327,10 +328,11 @@
 
     redo() { const c = this.undone.pop(); if (!c) return false; c.redo(); this.done.push(c); return true; }
 
-    /* Fade expiry: the item leaves the page and every command that could bring it back (spec 5.2). */
+    /* Fade expiry: the item leaves the page, and every command that references it leaves both stacks, a clear that
+       took it included, so that undo and redo never bring expired ink back (spec 5.2). */
     purge(node) {
       node.remove();
-      const keep = c => !(c.node === node);
+      const keep = c => !c.nodes.includes(node);
       this.done = this.done.filter(keep);
       this.undone = this.undone.filter(keep);
     }
