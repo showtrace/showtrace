@@ -576,8 +576,9 @@
     h.lens.set(h.at.x, h.at.y, h.zoom);
   }
 
-  /* The draw-mode glow of the toolbar: #00E5FF in both themes, at full strength (spec 6.3 and 6.9); the build's blur
-     radius of 22 px at 36 px buttons is about 4 units at the stand-in's 20. The region fits a toolbar of any shape. */
+  /* The draw-mode glow of the toolbar: #00E5FF in both themes (spec 6.3 and 6.9), at the full strength the build gives
+     it; the build's blur radius of 22 px at 36 px buttons is about 4 units at the stand-in's 20. The region fits a
+     toolbar of any shape. */
   function addGlow(h) {
     if (h.glowId) return;
     h.glowId = `glow-${h.sc.id}`;
