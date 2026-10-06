@@ -998,19 +998,65 @@
     },
   };
 
-  /* 4. Boards (spec 6.5). */
+  /* A popup of the toolbar that lists choices, as the board and screenshot buttons open (spec 6.9, items 11 and 12):
+     one row per choice, '|' for a separator. A row is a bar, as in the other popups, and the state line names the
+     choices. checked: the row that carries the build's check mark. */
+  const LIST = { width: 150, row: 18, sep: 9, pad: 6, inset: 12 };
+
+  function listPopup(h, id, rows, checked = -1) {
+    const height = LIST.pad * 2 + rows.reduce((sum, r) => sum + (r === '|' ? LIST.sep : LIST.row), 0);
+    const pop = popup(h, h.tb.centre(id).x, LIST.width, height);
+    const places = [];
+    let y = pop.y + LIST.pad;
+    rows.forEach((r, i) => {
+      if (r === '|') {
+        const mid = y + LIST.sep / 2;
+        pop.g.append(svg('line', { class: 'tb-sep', x1: pop.x + 8, y1: mid, x2: pop.x + pop.w - 8, y2: mid }));
+        places.push(null);
+        y += LIST.sep;
+        return;
+      }
+      pop.g.append(svg('rect', { class: 'tb-fill', x: pop.x + LIST.inset, y: y + 6, width: r, height: 6, rx: 3, opacity: 0.45 }));
+      if (i === checked) {
+        const cx = pop.x + pop.w - 18;
+        pop.g.append(svg('g', { class: 'tb-accent' }, svg('path', { class: 'tb-stroke', d: `M${cx - 5} ${y + 9} L${cx - 1.5} ${y + 12.5} L${cx + 5} ${y + 5.5}` })));
+      }
+      places.push({ x: pop.x + 4, y, w: pop.w - 8, at: P(pop.x + LIST.inset + Math.min(r, 60) / 2, y + LIST.row / 2) });
+      y += LIST.row;
+    });
+    return { g: pop.g, places };
+  }
+
+  /* The pointer goes to a toolbar button, its list opens, and the pointer picks a row: the build's hover shows on it,
+     and the list closes. */
+  async function pickFrom(run, h, id, rows, index, checked) {
+    await glide(run, h, h.tb.centre(id), 450);
+    const list = listPopup(h, id, rows, checked);
+    await run.pause(300);
+    const row = list.places[index];
+    await glide(run, h, row.at, 350);
+    list.g.insertBefore(svg('rect', { class: 'tb-field', x: row.x, y: row.y, width: row.w, height: LIST.row, rx: 4 }), list.g.children[1]);
+    await run.pause(300);
+    list.g.remove();
+  }
+
+  /* 4. Boards (spec 6.5). The colours, and the grids of 1 px lines every 40 px, are the build's (BoardStyle). A board
+     shows at once, as the build sets the background of the monitor's overlay: it does not slide in. */
   const BOARDS = {
     white: { fill: '#FFFFFF', grid: null, label: 'Whiteboard' },
     black: { fill: '#000000', grid: null, label: 'Blackboard' },
     lightgrid: { fill: '#FFFFFF', grid: '#D9D9D9', label: 'Light grid' },
     darkgrid: { fill: '#000000', grid: '#404040', label: 'Dark grid' },
   };
+  /* The board popup: None and the four boards, then the monitor picker: the monitor under the toolbar and each
+     monitor by number and size (spec 6.5). */
+  const BOARD_KINDS = [null, 'white', 'black', 'lightgrid', 'darkgrid'];
+  const BOARD_LIST = [30, 70, 70, 60, 58, '|', 116, 96];
 
   const boardsDemo = {
     build(card, mount) {
-      const h = stage(card, mount, { alt: 'A stand-in screen with marks. The demonstration opens a whiteboard, a blackboard and two grids over it.' });
+      const h = stage(card, mount, { alt: 'A stand-in screen with marks. The demonstration opens a whiteboard, a blackboard, a light grid and a dark grid over it.' });
       h.sc = screen(h.svg, 'boards');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
       for (const [kind, b] of Object.entries(BOARDS)) {
         if (!b.grid) continue;
@@ -1020,14 +1066,20 @@
       h.boardFill = svg('rect', { width: 640, height: 400 });
       h.boardGrid = svg('rect', { width: 640, height: 400, fill: 'none' });
       h.boardMarks = svg('g', { class: 'marks' });
-      h.board = svg('g', { class: 'board', transform: 'translate(0 -400)' }, h.boardFill, h.boardGrid, h.boardMarks);
+      h.board = svg('g', { class: 'board', display: 'none' }, h.boardFill, h.boardGrid, h.boardMarks);
       h.sc.content.append(h.board);
       h.boardDoc = new Doc(h.boardMarks);
       h.open = null;
       h.tb = toolbar(h, { draw: true });
       addPointer(h, P(400, 240));
       h.buttons = {};
-      const choose = async kind => { await stop(h); setBoard(new Run(true), h, kind); h.say(kind ? `${BOARDS[kind].label}. Draw mode is on; the screen marks wait underneath.` : 'Board closed: the screen marks are back.'); };
+      const choose = async kind => {
+        await stop(h);
+        const was = h.open;
+        setBoard(h, kind);
+        h.say(kind ? `${BOARDS[kind].label}, over the live screen. Draw mode is on; the screen marks wait underneath.`
+          : was ? 'None: the board closes, and the screen marks are back.' : 'No board is open: the live screen with its marks.');
+      };
       h.controls.append(group('Board',
         ...[['', 'None'], ...Object.entries(BOARDS).map(([k, b]) => [k, b.label])].map(([kind, label]) => {
           const b = button(label, () => choose(kind || null), { 'aria-pressed': 'false' });
@@ -1038,75 +1090,90 @@
     },
     reset(h) {
       h.doc.reset(); h.boardDoc.reset(); clearExtras(h);
-      h.open = null;
-      h.board.setAttribute('transform', 'translate(0 -400)');
-      h.tb.set({ active: null, on: {} });
+      setBoard(h, null);
+      h.tb.set({ active: null });
       movePointer(h, P(400, 240));
-      pressed(h);
     },
     async play(run, h) {
       h.tb.set({ active: 'pen' });
       h.say('Marks on the live screen.');
       await drawStroke(run, h, curve(P(190, 172), P(250, 160), P(330, 184), P(400, 170), 30, 1.2), { ms: 600 });
       await drawShape(run, h, 'arrow', P(430, 384), P(496, 340), { ms: 400 });
-      await run.pause(400);
-      h.say('Whiteboard, over the live screen on this monitor. Draw mode is on; the screen marks wait underneath.');
-      await setBoard(run, h, 'white');
-      await run.pause(300);
+      await run.pause(500);
+      h.say('The board button opens a list: None, the four boards, and the monitor to show them on.');
+      await pickBoard(run, h, 'white');
+      h.say('Whiteboard, over the live screen of this monitor. Draw mode is on; the screen marks wait underneath.');
+      await run.pause(500);
       await drawShape(run, h, 'rectangle', P(180, 110), P(290, 170), { doc: h.boardDoc, ms: 500 });
       await drawShape(run, h, 'rectangle', P(380, 230), P(490, 290), { doc: h.boardDoc, ms: 500 });
       await drawShape(run, h, 'arrow', P(292, 142), P(378, 228), { doc: h.boardDoc, ms: 500 });
       await run.pause(700);
-      h.say('Blackboard: the same board ink.');
-      await setBoard(run, h, 'black');
+      h.say('Blackboard. The marks on the board stay when you switch from one board to another.');
+      await pickBoard(run, h, 'black');
       await run.pause(1100);
-      h.say('Light grid: 40 px squares.');
-      await setBoard(run, h, 'lightgrid');
+      h.say('Light grid: white, with a grey line every 40 px.');
+      await pickBoard(run, h, 'lightgrid');
       await run.pause(1100);
-      h.say('Dark grid.');
-      await setBoard(run, h, 'darkgrid');
+      h.say('Dark grid: black, with a dark grey line every 40 px.');
+      await pickBoard(run, h, 'darkgrid');
       await run.pause(1100);
-      h.say('Board closed: the screen marks are back. The board ink waits for the next board.');
-      await setBoard(run, h, null);
-      await run.pause(300);
-      h.end('A whiteboard, a blackboard, a light grid and a dark grid, each over the live screen of one monitor. The screen marks come back when the board closes; the buttons below open the boards.');
+      h.say('None: the board closes, and the screen marks are back. The board keeps its marks for the next board.');
+      await pickBoard(run, h, null);
+      await run.pause(400);
+      h.end('A whiteboard, a blackboard, a light grid and a dark grid, each over the live screen of one monitor. The screen marks come back when the board closes; the buttons below open the boards.',
+        'A stand-in screen with a pen stroke and an arrow, back after the boards closed. The demonstration opened a whiteboard, a blackboard, a light grid and a dark grid over it, with marks of their own.');
     },
   };
 
+  /* Which board is open shows on the buttons below the stage. */
   function pressed(h) {
     for (const [kind, b] of Object.entries(h.buttons)) b.setAttribute('aria-pressed', String((h.open || 'none') === kind));
   }
 
-  async function setBoard(run, h, kind) {
-    const wasOpen = h.open !== null;
+  /* Opens a board, or closes it with null. A board forces draw mode, and the toolbar's board button shows it is on. */
+  function setBoard(h, kind) {
     h.open = kind;
     pressed(h);
-    h.tb.set({ draw: true, on: { board: kind ? true : false } });
-    if (kind) {
-      const b = BOARDS[kind];
-      h.boardFill.setAttribute('fill', b.fill);
-      h.boardGrid.setAttribute('fill', b.grid ? `url(#grid-${kind})` : 'none');
-      if (!wasOpen) await run.tween(320, t => h.board.setAttribute('transform', `translate(0 ${round(-400 * (1 - t))})`), t => 1 - Math.pow(1 - t, 3));
-      return;
-    }
-    if (wasOpen) await run.tween(320, t => h.board.setAttribute('transform', `translate(0 ${round(-400 * t)})`), t => t * t * t);
+    h.tb.set({ draw: true, on: kind ? { board: true } : {} });
+    if (!kind) { h.board.setAttribute('display', 'none'); return; }
+    const b = BOARDS[kind];
+    h.boardFill.setAttribute('fill', b.fill);
+    h.boardGrid.setAttribute('fill', b.grid ? `url(#grid-${kind})` : 'none');
+    h.board.removeAttribute('display');
+  }
+
+  async function pickBoard(run, h, kind) {
+    await pickFrom(run, h, 'board', BOARD_LIST, BOARD_KINDS.indexOf(kind));
+    setBoard(h, kind);
   }
 
   /* 5. Screenshots with the marks (spec 6.8). */
+  /* The screenshot popup: Full screen and Region; Send to, with Clipboard, Folder, and Clipboard and folder, checked
+     as the default (CaptureTarget Both, spec 5.6); Open screenshot folder (spec 6.9, item 12). */
+  const CAPTURE_LIST = [62, 48, '|', 44, 56, 40, 104, '|', 116];
+  const CAPTURE_REGION = 1, CAPTURE_BOTH = 6;
+  /* The build waits 150 ms for a frame without the toolbar before it copies the screen (spec 6.8); its notification
+     stays 2 s (spec 6.13, 7.1). */
+  const CAPTURE_WAIT_MS = 150;
+  const TOAST_MS = 2000;
+  /* The size tag of the region: white on black at 80 percent, 14 px from the pointer, Segoe UI 12 px in the build
+     (RegionSelectWindow); here 16, to read at card size. */
+  const SIZE_TAG = { offset: 14, size: 16, padX: 6, padY: 3 };
+
   const captureDemo = {
     build(card, mount) {
-      const h = stage(card, mount, { alt: 'A stand-in screen with marks. The demonstration drags a region and shows the screenshot as a thumbnail.' });
+      const h = stage(card, mount, { alt: 'A stand-in screen with marks. The demonstration drags a region and shows the screenshot below the screen.' });
       h.sc = screen(h.svg, 'capture');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
       h.tb = toolbar(h, { draw: true });
-      addPointer(h, P(160, 60));
+      addPointer(h, P(400, 240));
       h.thumb = el('div', { class: 'demo-thumb', hidden: '' });
-      h.state.after(h.thumb);
+      h.controls.after(h.thumb);
       h.controls.append(button('Full screen', async () => {
         await stop(h);
-        showShot(h, { x: 0, y: 0, w: 640, h: 400 });
-        h.say('Full screen: the monitor under the pointer, with the marks, without the toolbar and the pointer.');
+        const name = shotName();
+        showShot(h, { x: 0, y: 0, w: 640, h: 400 }, name);
+        h.say(`Full screen: the monitor under the pointer, with the marks, without the toolbar and the pointer. Copied and saved as ${name}.`);
       }));
       return h;
     },
@@ -1114,8 +1181,9 @@
       h.doc.reset(); clearExtras(h);
       h.thumb.hidden = true;
       h.thumb.replaceChildren();
+      h.pointer.removeAttribute('visibility');
       h.tb.set({ hidden: false, active: null });
-      movePointer(h, P(160, 60));
+      movePointer(h, P(400, 240));
       /* Marks already on the screen when the screenshot is taken. */
       h.doc.add(svg('path', Object.assign(inkAttrs({}), { d: pathOf(smooth(curve(P(190, 172), P(250, 160), P(330, 184), P(400, 170), 30, 1.2))) })));
       const [l, r] = arrowHead(P(430, 384), P(496, 340), PEN_WIDTH);
@@ -1126,37 +1194,83 @@
       h.doc.add(svg('rect', Object.assign(inkAttrs({}), { x: 172, y: 180, width: 310, height: 150 })));
     },
     async play(run, h) {
-      h.say('Screenshot, region. The toolbar hides, the screen dims, and you drag the region.');
-      await run.pause(400);
+      const name = shotName();
+      h.say('The screenshot button opens a list: Full screen, Region, where to send the picture, and its folder.');
+      await pickFrom(run, h, 'capture', CAPTURE_LIST, CAPTURE_REGION, CAPTURE_BOTH);
+      h.say('Region. The toolbar hides, and after 150 ms the screen dims by half. The pointer becomes a cross.');
       h.tb.set({ hidden: true });
-      const mask = svg('path', { class: 'dim-mask' });
-      const frame = svg('rect', { class: 'dim-frame' });
-      const dim = extra(h, underPointer(h, svg('g', null, mask, frame)));
-      const from = P(160, 60), to = P(600, 380);
-      const hole = p => {
-        const b = box(from, p);
-        mask.setAttribute('d', `M0 0 H640 V400 H0 Z M${round(b.x)} ${round(b.y)} H${round(b.x + b.w)} V${round(b.y + b.h)} H${round(b.x)} Z`);
-        attr(frame, { x: round(b.x), y: round(b.y), width: round(b.w), height: round(b.h) });
-        return b;
-      };
-      hole(from);
+      await run.hold(CAPTURE_WAIT_MS);
+      const select = regionSelect(h);
+      await run.pause(600);
+      const from = P(604, 390), to = P(156, 54);
+      h.say('Drag the region. It stays clear inside a white frame, with its size in pixels next to the pointer.');
+      const start = h.at;
+      await run.tween(400, t => select.move(P(lerp(start.x, from.x, t), lerp(start.y, from.y, t))));
       let region = null;
-      await run.tween(1100, t => { const p = P(lerp(from.x, to.x, t), lerp(from.y, to.y, t)); movePointer(h, p); region = hole(p); });
-      dim.remove();
-      showShot(h, region);
+      await run.tween(1300, t => { region = select.drag(from, P(lerp(from.x, to.x, t), lerp(from.y, to.y, t))); });
+      await run.pause(300);
+      select.end();
+      showShot(h, region, name);
       h.tb.set({ hidden: false });
-      await run.pause(200);
-      h.end('Saved. The marks and the board are in the picture; the toolbar and the pointer are not. To the clipboard, to a PNG in Pictures\\Showtrace, or both.');
+      const toast = popup(h, 320, 300, 30);
+      toast.g.append(svg('rect', { class: 'tb-fill', x: toast.x + 14, y: toast.y + 12, width: 236, height: 6, rx: 3, opacity: 0.45 }));
+      h.say(`The toolbar is back, with a notification for 2 s: "Screenshot copied and saved as ${name}".`);
+      await run.hold(TOAST_MS);
+      toast.g.remove();
+      await run.pause(300);
+      h.end('The region is saved with the marks in it, as a board would be; the toolbar and the pointer are not. It goes to the clipboard, to a PNG in Pictures\\Showtrace, or both.',
+        'A stand-in screen with marks. Below it, the screenshot of a region: the marks are in it, the toolbar and the pointer are not.');
     },
   };
 
-  /* The screenshot as a thumbnail: the content of the stand-in screen, cropped to the region, named as the build names it. */
-  function showShot(h, region) {
+  /* Region selection, as the build draws it (spec 6.8, RegionSelectWindow): a 50 percent dim with a clear hole and a
+     white frame, the size tag, and a cross for the pointer. The size is in stand-in units, which stand for pixels. */
+  function regionSelect(h) {
+    const mask = svg('path', { class: 'dim-mask', d: 'M0 0 H640 V400 H0 Z' });
+    const frame = svg('rect', { class: 'dim-frame', display: 'none' });
+    const tagText = svg('text', { fill: '#FFFFFF', 'font-size': SIZE_TAG.size, 'font-family': '"Segoe UI", system-ui, sans-serif', 'dominant-baseline': 'hanging' });
+    const tagBox = svg('rect', { fill: '#000000', 'fill-opacity': 0.8, rx: 3 });
+    const tag = svg('g', { display: 'none' }, tagBox, tagText);
+    const cross = svg('g', { 'stroke-linecap': 'round' },
+      svg('path', { d: 'M-11 0 H11 M0 -11 V11', stroke: '#FFFFFF', 'stroke-width': 4 }),
+      svg('path', { d: 'M-11 0 H11 M0 -11 V11', stroke: '#1A1F24', 'stroke-width': 1.5 }));
+    const dim = extra(h, underPointer(h, svg('g', null, mask, frame, tag, cross)));
+    h.pointer.setAttribute('visibility', 'hidden');
+    const move = p => { movePointer(h, p); cross.setAttribute('transform', `translate(${round(p.x)} ${round(p.y)})`); };
+    move(h.at);
+    return {
+      move,
+      drag(from, p) {
+        move(p);
+        const b = box(from, p);
+        mask.setAttribute('d', `M0 0 H640 V400 H0 Z M${round(b.x)} ${round(b.y)} H${round(b.x + b.w)} V${round(b.y + b.h)} H${round(b.x)} Z`);
+        attr(frame, { x: round(b.x), y: round(b.y), width: round(b.w), height: round(b.h) });
+        frame.removeAttribute('display');
+        /* The build writes the size with a multiplication sign; this page keeps to keyboard characters. */
+        const label = `${Math.round(b.w)} x ${Math.round(b.h)}`;
+        tagText.textContent = label;
+        const w = label.length * SIZE_TAG.size * 0.56 + SIZE_TAG.padX * 2, hgt = SIZE_TAG.size + SIZE_TAG.padY * 2;
+        /* Kept on the monitor, as the build keeps it. */
+        const x = Math.min(p.x + SIZE_TAG.offset, 640 - w), y = Math.min(p.y + SIZE_TAG.offset, 400 - hgt);
+        attr(tagBox, { x: round(x), y: round(y), width: round(w), height: hgt });
+        attr(tagText, { x: round(x + SIZE_TAG.padX), y: round(y + SIZE_TAG.padY + 1) });
+        tag.removeAttribute('display');
+        return b;
+      },
+      end() { dim.remove(); h.pointer.removeAttribute('visibility'); },
+    };
+  }
+
+  /* The screenshot as a thumbnail below the stage: the content of the stand-in screen, without the toolbar, the
+     pointer and the dim, cropped to the region, with the name the build gives the file. */
+  function showShot(h, region, name) {
     const shot = svg('svg', { viewBox: `${round(region.x)} ${round(region.y)} ${round(region.w)} ${round(region.h)}`, class: 'thumb', 'aria-hidden': 'true', focusable: 'false' },
       svg('use', { href: `#sc-${h.sc.id}` }));
-    h.thumb.replaceChildren(shot, el('span', { text: `Showtrace ${stamp(new Date())}.png` }));
+    h.thumb.replaceChildren(shot, el('span', { text: `Saved as ${name}` }));
     h.thumb.hidden = false;
   }
+
+  const shotName = () => `Showtrace ${stamp(new Date())}.png`;
 
   /* The capture file name of the build: Showtrace yyyy-MM-dd HH-mm-ss (spec 5.7). */
   function stamp(d) {
@@ -1206,26 +1320,31 @@
     h.sc.button.classList.remove('sc-pressed');
   }
 
-  /* 7. Across monitors (spec 6.12, ScreenMap). */
+  /* 7. Across monitors (spec 6.12 and 6.4; the build's ScreenMap). */
   const monitorsDemo = {
     build(card, mount) {
-      const h = stage(card, mount, { alt: 'Two stand-in monitors with different scaling. The demonstration draws a stroke from one onto the other.' });
+      const h = stage(card, mount, { alt: 'Two stand-in monitors, at 100 and 150 percent scaling. The demonstration draws a stroke and a rectangle from one onto the other.' });
       h.sc = monitors(h.svg, 'monitors');
+      /* What sets the two monitors apart, written under each: words of this page, not of a screen. */
+      for (const [m, text] of [[h.sc.A, 'Scaling 100 percent'], [h.sc.B, 'Scaling 150 percent']]) {
+        h.sc.content.append(svg('text', { x: m.x + m.w / 2, y: m.y + m.h + 42, 'text-anchor': 'middle', 'font-size': 20, fill: 'currentColor', text }));
+      }
       h.doc = new Doc(h.sc.marks);
       addPointer(h, P(60, 160));
       return h;
     },
     reset(h) { h.doc.reset(); clearExtras(h); movePointer(h, P(60, 160)); },
     async play(run, h) {
-      h.say('Two monitors with the same number of pixels: 100 percent scaling on the left, 150 percent on the right.');
-      await run.pause(600);
-      h.say('A stroke from one monitor onto the other.');
+      h.say('Two monitors with the same number of pixels. The right one runs at 150 percent, so the same window shows larger there.');
+      await run.pause(1200);
+      h.say('A stroke from one monitor onto the other: one line, across the edge.');
       await drawStroke(run, h, curve(P(60, 160), P(200, 110), P(400, 210), P(580, 150), 50, 1.2), { ms: 1400 });
-      await run.pause(400);
-      h.say('A rectangle across both. The copy on each monitor keeps the same physical width and place.');
+      await run.pause(500);
+      h.say('A rectangle across both. Each copy keeps its physical size and place, so the line is as wide on both.');
       await drawShape(run, h, 'rectangle', P(170, 100), P(470, 215), { ms: 700 });
-      await run.pause(300);
-      h.end('Strokes and shapes continue across monitors, including mixed scaling. Text stays on one monitor.');
+      await run.pause(400);
+      h.end('Strokes and shapes continue from one monitor onto the next, also at different scaling; each copy keeps its physical size and place. Text stays on one monitor.',
+        'Two stand-in monitors, at 100 and 150 percent scaling, with a stroke and a rectangle that continue from one onto the other.');
     },
   };
 
