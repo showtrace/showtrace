@@ -4,7 +4,10 @@
    The demonstrations are drawn by demonstrations.js on a neutral stand-in screen; their colours are below.
    No fonts, scripts or images from other domains. Works without JavaScript and at 320 px. */
 
-/* Atkinson Hyperlegible Next, variable weight 200 to 800, upright and italic (Braille Institute, SIL Open Font License 1.1). */
+/* Atkinson Hyperlegible Next, variable weight 200 to 800, upright and italic (Braille Institute, SIL Open Font License 1.1).
+   font-display: swap, on purpose: the text reads at once in the fallback below, and the face takes over when it
+   arrives. The page preloads the upright file, so it is mostly there before the first paint; when it is not, the
+   fallback keeps every line where it is, so the swap moves nothing. */
 @font-face {
   font-family: "Atkinson Hyperlegible Next";
   font-style: normal;
@@ -19,6 +22,33 @@
   font-weight: 200 800;
   font-display: swap;
   src: url("fonts/AtkinsonHyperlegibleNext-Italic-wght.woff2") format("woff2");
+}
+
+/* The fallback while the face loads: Arial, or a font with Arial's widths (Liberation Sans, Arimo), scaled to the
+   widths of Atkinson Hyperlegible Next and given its vertical metrics, so that a line breaks at the same word in both.
+   Measured on 2026-10-06: the face is 0.989 of Arial's width on the page's own text at weight 400, and 0.986 of Arial
+   Bold's on the headings at 700; its ascent and descent are 984 and 316 per 1000 (hhea and typo alike). Each override
+   is the face's metric divided by the size-adjust. A browser that does not know a descriptor ignores it. */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next fallback";
+  font-style: normal;
+  font-weight: 100 549;
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("LiberationSans"), local("Arimo");
+  size-adjust: 98.9%;
+  ascent-override: 99.5%;
+  descent-override: 31.95%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Next fallback";
+  font-style: normal;
+  font-weight: 550 900;
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"), local("LiberationSans-Bold"), local("Arimo Bold");
+  size-adjust: 98.6%;
+  ascent-override: 99.8%;
+  descent-override: 32.05%;
+  line-gap-override: 0%;
 }
 
 :root {
@@ -141,7 +171,7 @@
 }
 
 html {
-  font-family: "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible Next fallback", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 100%;
   line-height: var(--leading);
   -webkit-text-size-adjust: 100%;

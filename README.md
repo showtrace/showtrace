@@ -22,6 +22,8 @@ The pages are in `site/`. GitHub Pages serves that folder through the workflow i
 
 Atkinson Hyperlegible Next by the Braille Institute, under the SIL Open Font License 1.1, self-hosted in `site/fonts/` as two variable WOFF2 files (upright and italic, weight 200 to 800) with its licence text. The files are the web fonts of the upstream repository `googlefonts/atkinson-hyperlegible-next` (version 2.001, the `fonts/webfonts` folder at its commit of 2024-11-20, the same binaries Google Fonts serves). Checked at the source on 2026-10-06: weights 200 to 800 as one variable axis, italics for every weight, tabular and proportional figures (`tnum`, `pnum`), 362 code points including the Latin-1 Supplement and the Dutch ij.
 
+The page preloads the upright file; the italic one is not preloaded, because the page sets no italic text. `font-display: swap` shows the text at once in a fallback face: Arial, or Liberation Sans or Arimo, which have Arial's widths, scaled to the widths of Atkinson Hyperlegible Next and given its vertical metrics. Measured in Chromium on Windows on 2026-10-06: when the face arrives, nothing on the page moves at 768 and 1280 px wide; at 320 px, 4 of about 95 blocks of text break one line at another word. Where Arial and its clones are missing, as on Android, the platform's own font stands in unadjusted.
+
 ## The head
 
 - Every file the page loads is named by a relative path. Only the canonical link and the sharing tags name an address, the public one, `https://showtrace.github.io/showtrace/`, and they load nothing. When the owners choose a domain, those addresses change together with the `-Address` of the check, which refuses any other.
