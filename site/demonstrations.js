@@ -1573,6 +1573,16 @@
     for (const h of mounted) if (moving(h)) stop(h);
   });
 
+  /* A printed page shows end states: a card that has not come into view, or whose play still moves, is brought to
+     its end state before the page prints, quietly. An instant run ends before the browser paints. */
+  window.addEventListener('beforeprint', () => {
+    for (const h of mounted) {
+      if (h.frame.played && !moving(h)) continue;
+      if (observer) observer.unobserve(h.box);
+      start(h, { instant: true, quiet: true });
+    }
+  });
+
   /* ---------- The sandbox: draw on the stand-in screen, save a PNG ---------- */
 
   const SCREEN_COLOURS = {
