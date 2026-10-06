@@ -1585,10 +1585,6 @@
 
   /* ---------- The sandbox: draw on the stand-in screen, save a PNG ---------- */
 
-  const SCREEN_COLOURS = {
-    light: { 'sc-bg': '#ECECEC', 'sc-bar': '#E0E0E0', 'sc-side': '#E4E4E4', 'sc-block': '#CDCDCD', 'sc-line': '#D4D4D4', 'sc-panel': '#F4F4F4', 'sc-button': '#BDBDBD', 'sc-button-label': '#8E8E8E', label: '#1A1F24', labelText: '#FFFFFF' },
-    dark: { 'sc-bg': '#2E2E2E', 'sc-bar': '#383838', 'sc-side': '#333333', 'sc-block': '#4A4A4A', 'sc-line': '#444444', 'sc-panel': '#363636', 'sc-button': '#5A5A5A', 'sc-button-label': '#8A8A8A', label: '#EEEEEE', labelText: '#1A1F24' },
-  };
   const SANDBOX_COLOURS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#AF52DE', '#000000', '#FFFFFF'];
 
   function sandbox(root) {
@@ -1602,18 +1598,6 @@
     let done = [], undone = [], current = null, frame = 0;
     let tool = 'pen', fade = 0;
     const colours = { pen: INK.pen, highlighter: INK.highlighter };
-
-    function palette() { return SCREEN_COLOURS[darkScheme.matches ? 'dark' : 'light']; }
-
-    function paintScreen(c, k) {
-      paintStandIn(c, k);
-    }
-
-    function roundRect(c, x, y, w, h, r) {
-      c.beginPath();
-      if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h);
-      c.fill();
-    }
 
     /* 1 until the item's fade time, then down to 0 over 600 ms; null once it has gone (spec 5.4). */
     function alphaOf(item, now) {
@@ -1649,7 +1633,7 @@
       const now = performance.now();
       ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
       ctx.clearRect(0, 0, W, H);
-      paintScreen(ctx, false);
+      paintStandIn(ctx, false);
       let fading = false;
       for (const item of [...items]) {
         const alpha = alphaOf(item, now);
@@ -1762,7 +1746,7 @@
       out.width = W * 2; out.height = H * 2;
       const c = out.getContext('2d');
       c.setTransform(2, 0, 0, 2, 0, 0);
-      paintScreen(c, true);
+      paintStandIn(c, true);
       const now = performance.now();
       for (const item of items) { const alpha = alphaOf(item, now); if (alpha !== null) paintItem(c, item, alpha); }
       out.toBlob(blob => {
