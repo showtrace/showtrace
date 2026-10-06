@@ -1181,11 +1181,12 @@ kbd {
 
 /* Download */
 
+/* 1rem of padding at 320 px, as the cards have, so the text keeps its width there. */
 .download-box {
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: var(--radius-l);
-  padding: var(--space-5) var(--space-6);
+  padding: clamp(1rem, 0.6rem + 2vw, 1.5rem) clamp(1rem, 0.2rem + 4vw, 2rem);
   max-width: var(--measure);
 }
 
