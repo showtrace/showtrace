@@ -1238,34 +1238,38 @@
     build(card, mount) {
       const h = stage(card, mount, { alt: 'A stand-in screen with a button. The demonstration switches between draw mode and cursor mode.' });
       h.sc = screen(h.svg, 'modes');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
-      h.tb = toolbar(h, { draw: true });
+      h.tb = toolbar(h, { draw: false });
       addPointer(h, P(400, 250));
       return h;
     },
-    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ draw: true, active: null }); h.sc.button.classList.remove('sc-pressed'); movePointer(h, P(400, 250)); },
+    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ draw: false, active: null }); h.sc.button.classList.remove('sc-pressed'); movePointer(h, P(400, 250)); },
     async play(run, h) {
-      h.tb.set({ draw: true, active: 'arrow' });
+      /* Picking a drawing tool switches to draw mode, so one click starts drawing (spec 6.4); the toolbar glows (6.3). */
+      h.say('Cursor mode: clicks go to the application. One click on a tool, and you are in draw mode.');
+      await tap(run, h, 'arrow', { draw: true, active: 'arrow' }, 700);
       h.say('Draw mode: the toolbar glows, and the pointer draws on the screen.');
       await drawShape(run, h, 'arrow', P(400, 250), P(498, 330), { ms: 600 });
       await run.pause(500);
+      /* Escape from inside any application leaves draw mode; the marks stay (spec 6.3). */
       h.say('Press ', { key: 'Escape' }, ', from inside any application: cursor mode. The marks stay; clicks go to the application.');
       h.tb.set({ draw: false, active: null });
-      await run.pause(400);
+      await run.pause(600);
       await glide(run, h, P(556, 336), 700);
       await press(run, h);
       h.say('The click reaches the button under the marks.');
-      await run.pause(700);
-      h.say('One click on a tool, and you draw again.');
-      h.tb.set({ draw: true, active: 'ellipse' });
+      await run.pause(800);
+      h.say('Another click on a tool, and you draw again.');
+      await tap(run, h, 'ellipse', { draw: true, active: 'ellipse' }, 700);
       await drawShape(run, h, 'ellipse', P(488, 306), P(624, 366), { ms: 600 });
-      await run.pause(400);
-      h.say('Hold ', { key: 'Ctrl' }, ' + ', { key: 'Alt' }, ' while drawing: for a moment, clicks pass through the marks.');
+      await run.pause(500);
+      /* Hold-to-interact: while Ctrl and Alt are down in draw mode, clicks pass through; draw mode stays (spec 6.3). */
+      h.say('Hold ', { key: 'Ctrl' }, ' + ', { key: 'Alt' }, ' in draw mode: for a moment, clicks pass through the marks. Draw mode stays on.');
       await glide(run, h, P(556, 336), 600);
       await press(run, h);
       await run.pause(500);
-      h.end('Explain and operate, in turns: draw mode, Escape for the pointer, Ctrl+Alt to click through the marks for a moment.');
+      h.end('Explain and operate, in turns: one click on a tool for draw mode, Escape for the pointer, Ctrl+Alt to click through the marks for a moment.',
+        'A stand-in screen in draw mode. An arrow points at a button, and a circle goes round it; the pointer is on the button.');
     },
   };
 
