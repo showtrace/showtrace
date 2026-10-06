@@ -39,7 +39,7 @@ There is no `robots.txt`: crawlers read one only at the root of a host, and Page
 
 ## Print
 
-A printed page is light on white paper, whatever the visitor's colour scheme: the dark scheme applies to screens only. Print leaves out what works only on a screen (the skip link, the section links, the hero's links and mark, the controls of the demonstrations and the sandbox, the link back to the top) and keeps the text, each demonstration as it stands and its "Demonstration" label, which keeps its dark plate. Cards, quotes and the trace do not break across pages.
+A printed page is light on white paper, whatever the visitor's colour scheme: the dark scheme applies to screens only. Print leaves out what works only on a screen (the skip link, the section links, the hero's links and mark, the controls of the demonstrations and the sandbox, the link back to the top) and keeps the text, each demonstration as it stands and its "Demonstration" label, which keeps its dark plate, and the sandbox as the visitor left it, its stand-in painted light for paper. Cards, quotes, the trace and the sandbox do not break across pages.
 
 ## Preview
 

@@ -1507,6 +1507,7 @@ kbd {
   .quotes li,
   .intents > div,
   .download-box,
+  .sandbox,
   .demo {
     break-inside: avoid;
   }
