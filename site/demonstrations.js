@@ -182,8 +182,8 @@
 
   /* ---------- The stand-in screen ---------- */
 
-  /* 640 by 400 units: a neutral window with a menu bar, a side pane, text lines, a panel and a button. Grey blocks
-     only, so that it never reads as a screenshot. The sandbox paints the same layout on its canvas. */
+  /* 640 by 400 units: a neutral window with a menu bar, a side pane, text lines, a panel and a button. Grey shapes
+     only, so that it never reads as a screenshot. The places a demonstration points at. */
   const LAYOUT = {
     bar: { x: 0, y: 0, w: 640, h: 36 },
     menus: [{ x: 16, y: 12, w: 36, h: 12 }, { x: 64, y: 12, w: 36, h: 12 }, { x: 112, y: 12, w: 44, h: 12 }],
@@ -198,18 +198,56 @@
     dropdownItems: [48, 72, 96, 120].map(y => ({ x: 30, y, w: 90, h: 10 })),
   };
 
-  const rect = (b, cls, extra) => svg('rect', Object.assign({ x: b.x, y: b.y, width: b.w, height: b.h, class: cls }, extra));
+  /* The stand-in as one list of shapes in painting order, so that the demonstrations (SVG, blocks) and the sandbox
+     (a canvas, paintStandIn) paint the same screen. A shape of class sc-NAME is filled with the colour token
+     --screen-NAME of styles.css: by the stylesheet in an SVG, and read from it on a canvas. */
+  const shape = (cls, b, r = 0, name = '') => ({ cls, b, r, name });
+  const SHAPES = [
+    shape('sc-bg', { x: 0, y: 0, w: 640, h: 400 }),
+    shape('sc-side', LAYOUT.side),
+    shape('sc-bar', LAYOUT.bar),
+    ...LAYOUT.menus.map(b => shape('sc-block', b, 3)),
+    ...LAYOUT.sideLines.map(b => shape('sc-line', b, 5)),
+    ...LAYOUT.lines.map(b => shape('sc-line', b, 5)),
+    shape('sc-panel', LAYOUT.panel, 8),
+    ...LAYOUT.panelLines.map(b => shape('sc-line', b, 5)),
+    shape('sc-button', LAYOUT.button, 6, 'button'),
+    shape('sc-button-label', LAYOUT.buttonLabel, 3),
+  ];
+  /* The stand-in application's first menu, open. */
+  const DROPDOWN = [shape('sc-dropdown', LAYOUT.dropdown, 6), ...LAYOUT.dropdownItems.map(b => shape('sc-line', b, 5))];
 
-  /* The blocks of the stand-in window. Returns the nodes and the ones a demonstration points at. */
+  const rect = (b, cls, extra) => svg('rect', Object.assign({ x: b.x, y: b.y, width: b.w, height: b.h, class: cls }, extra));
+  const shapeNode = s => rect(s.b, s.cls, s.r ? { rx: s.r } : null);
+
+  /* The stand-in as SVG nodes, and the button a demonstration presses. */
   function blocks() {
-    const nodes = [rect({ x: 0, y: 0, w: 640, h: 400 }, 'sc-bg'), rect(LAYOUT.side, 'sc-side'), rect(LAYOUT.bar, 'sc-bar')];
-    const menus = LAYOUT.menus.map(b => rect(b, 'sc-block', { rx: 3 }));
-    nodes.push(...menus, ...LAYOUT.sideLines.map(b => rect(b, 'sc-line', { rx: 5 })), ...LAYOUT.lines.map(b => rect(b, 'sc-line', { rx: 5 })));
-    const panel = rect(LAYOUT.panel, 'sc-panel', { rx: 8 });
-    nodes.push(panel, ...LAYOUT.panelLines.map(b => rect(b, 'sc-line', { rx: 5 })));
-    const btn = rect(LAYOUT.button, 'sc-button', { rx: 6 });
-    nodes.push(btn, rect(LAYOUT.buttonLabel, 'sc-button-label', { rx: 3 }));
-    return { nodes, menus, panel, button: btn };
+    const nodes = SHAPES.map(shapeNode);
+    return { nodes, button: nodes[SHAPES.findIndex(s => s.name === 'button')] };
+  }
+
+  /* The stand-in on a canvas of 640 by 400 units, in the colours of the current scheme. With label, the picture says
+     what it is, as the label on the stage does. */
+  function paintStandIn(c, label) {
+    const style = getComputedStyle(document.documentElement);
+    const token = name => style.getPropertyValue(name).trim();
+    const fillBox = (b, r) => {
+      c.beginPath();
+      if (r && c.roundRect) c.roundRect(b.x, b.y, b.w, b.h, r); else c.rect(b.x, b.y, b.w, b.h);
+      c.fill();
+    };
+    for (const s of SHAPES) {
+      c.fillStyle = token(`--screen-${s.cls.slice(3)}`);
+      fillBox(s.b, s.r);
+    }
+    if (!label) return;
+    const text = 'Demonstration';
+    c.font = '600 13px system-ui, "Segoe UI", sans-serif';
+    c.fillStyle = token('--demo-label-bg');
+    fillBox({ x: 10, y: 10, w: c.measureText(text).width + 16, h: 22 }, 4);
+    c.fillStyle = token('--demo-label-text');
+    c.textBaseline = 'middle';
+    c.fillText(text, 18, 21);
   }
 
   function screen(root, id) {
@@ -224,11 +262,11 @@
     let menu = null;
     return {
       svg: root, defs, content, blockLayer, marks, overlay, id,
-      menus: parts.menus, panel: parts.panel, button: parts.button,
+      button: parts.button,
       /* The stand-in application opens its first menu: a dropdown under it. */
       openMenu() {
         if (menu) return;
-        menu = svg('g', null, rect(LAYOUT.dropdown, 'sc-dropdown', { rx: 6 }), ...LAYOUT.dropdownItems.map(b => rect(b, 'sc-line', { rx: 5 })));
+        menu = svg('g', null, ...DROPDOWN.map(shapeNode));
         blockLayer.append(menu);
       },
       closeMenu() { if (menu) menu.remove(); menu = null; },
@@ -1249,25 +1287,7 @@
     function palette() { return SCREEN_COLOURS[darkScheme.matches ? 'dark' : 'light']; }
 
     function paintScreen(c, k) {
-      const p = palette();
-      const r = (b, cls, radius = 0) => { c.fillStyle = p[cls]; roundRect(c, b.x, b.y, b.w, b.h, radius); };
-      r({ x: 0, y: 0, w: W, h: H }, 'sc-bg');
-      r(LAYOUT.side, 'sc-side'); r(LAYOUT.bar, 'sc-bar');
-      LAYOUT.menus.forEach(b => r(b, 'sc-block', 3));
-      LAYOUT.sideLines.forEach(b => r(b, 'sc-line', 5));
-      LAYOUT.lines.forEach(b => r(b, 'sc-line', 5));
-      r(LAYOUT.panel, 'sc-panel', 8);
-      LAYOUT.panelLines.forEach(b => r(b, 'sc-line', 5));
-      r(LAYOUT.button, 'sc-button', 6);
-      r(LAYOUT.buttonLabel, 'sc-button-label', 3);
-      if (k) {
-        /* The saved picture says what it is. */
-        c.font = '600 13px system-ui, "Segoe UI", sans-serif';
-        const text = 'Demonstration';
-        const tw = c.measureText(text).width;
-        c.fillStyle = p.label; c.globalAlpha = 0.85; roundRect(c, 10, 10, tw + 16, 22, 4); c.globalAlpha = 1;
-        c.fillStyle = p.labelText; c.textBaseline = 'middle'; c.fillText(text, 18, 21);
-      }
+      paintStandIn(c, k);
     }
 
     function roundRect(c, x, y, w, h, r) {
