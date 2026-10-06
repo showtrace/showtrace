@@ -54,19 +54,23 @@
   --focus: var(--trace-teal);
   --tint: rgba(14, 129, 146, 0.1);
 
-  /* The stand-in screen: greys without a hue, so that it never reads as a screenshot. */
-  --screen-bg: #ECECEC;
-  --screen-bar: #E0E0E0;
-  --screen-side: #E4E4E4;
-  --screen-block: #CDCDCD;
-  --screen-line: #D4D4D4;
-  --screen-panel: #F4F4F4;
-  --screen-button: #BDBDBD;
-  --screen-button-label: #8E8E8E;
-  --screen-pressed: #9E9E9E;
-  --screen-dropdown: #F6F6F6;
-  --screen-frame: #9A9A9A;
-  --lens-frame: rgba(26, 31, 36, 0.45);
+  /* The stand-in screen: greys without a hue, so that it never reads as a screenshot. The surfaces a mark is drawn on
+     (bg, bar, side, panel, dropdown) keep the pen red #FF3B30 and the laser red at 3:1 or more in both schemes (WCAG
+     1.4.11); the lens frame and the monitor frames have 3:1 against them. */
+  --screen-bg: #F7F7F7;
+  --screen-bar: #EEEEEE;
+  --screen-side: #F0F0F0;
+  --screen-edge: #DCDCDC;
+  --screen-block: #CACACA;
+  --screen-line: #DADADA;
+  --screen-panel: #FFFFFF;
+  --screen-shade: #D4D4D4;
+  --screen-button: #C7C7C7;
+  --screen-button-label: #8C8C8C;
+  --screen-pressed: #A9A9A9;
+  --screen-dropdown: #FFFFFF;
+  --screen-frame: #858585;
+  --lens-frame: rgba(26, 31, 36, 0.62);
   --demo-label-bg: rgba(26, 31, 36, 0.78);
   --demo-label-text: #FFFFFF;
 
@@ -115,18 +119,20 @@
     --focus: var(--trace-teal-light);
     --tint: rgba(77, 208, 225, 0.14);
 
-    --screen-bg: #2E2E2E;
-    --screen-bar: #383838;
-    --screen-side: #333333;
-    --screen-block: #4A4A4A;
-    --screen-line: #444444;
-    --screen-panel: #363636;
+    --screen-bg: #2B2B2B;
+    --screen-bar: #323232;
+    --screen-side: #303030;
+    --screen-edge: #3E3E3E;
+    --screen-block: #545454;
+    --screen-line: #464646;
+    --screen-panel: #333333;
+    --screen-shade: #1F1F1F;
     --screen-button: #5A5A5A;
-    --screen-button-label: #8A8A8A;
-    --screen-pressed: #777777;
-    --screen-dropdown: #3C3C3C;
-    --screen-frame: #6B6B6B;
-    --lens-frame: rgba(238, 238, 238, 0.5);
+    --screen-button-label: #8E8E8E;
+    --screen-pressed: #747474;
+    --screen-dropdown: #363636;
+    --screen-frame: #767676;
+    --lens-frame: rgba(238, 238, 238, 0.55);
     --demo-label-bg: rgba(238, 238, 238, 0.85);
     --demo-label-text: #1A1F24;
   }
@@ -642,16 +648,19 @@ kbd {
 
 /* The stand-in screen inside an SVG */
 
+/* A shape of class sc-NAME is filled with --screen-NAME; the sandbox's canvas reads the same tokens. */
 .sc-bg { fill: var(--screen-bg); }
 .sc-bar { fill: var(--screen-bar); }
 .sc-side { fill: var(--screen-side); }
+.sc-edge { fill: var(--screen-edge); }
 .sc-block { fill: var(--screen-block); }
 .sc-line { fill: var(--screen-line); }
 .sc-panel { fill: var(--screen-panel); }
+.sc-shade { fill: var(--screen-shade); }
 .sc-button { fill: var(--screen-button); }
 .sc-button.sc-pressed { fill: var(--screen-pressed); }
 .sc-button-label { fill: var(--screen-button-label); }
-.sc-dropdown { fill: var(--screen-dropdown); stroke: var(--screen-block); stroke-width: 1; }
+.sc-dropdown { fill: var(--screen-dropdown); }
 .mon-frame { fill: var(--screen-frame); }
 
 .sc-text {

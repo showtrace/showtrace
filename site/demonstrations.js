@@ -182,40 +182,77 @@
 
   /* ---------- The stand-in screen ---------- */
 
-  /* 640 by 400 units: a neutral window with a menu bar, a side pane, text lines, a panel and a button. Grey shapes
-     only, so that it never reads as a screenshot. The places a demonstration points at. */
+  /* 640 by 400 units: a neutral window with a menu bar, a side pane, a heading and lines of text, a panel and a button.
+     Grey shapes only, so that it never reads as a screenshot. The places a demonstration points at. */
   const LAYOUT = {
     bar: { x: 0, y: 0, w: 640, h: 36 },
     menus: [{ x: 16, y: 12, w: 36, h: 12 }, { x: 64, y: 12, w: 36, h: 12 }, { x: 112, y: 12, w: 44, h: 12 }],
     side: { x: 0, y: 36, w: 150, h: 364 },
     sideLines: [60, 84, 108, 132, 156].map(y => ({ x: 18, y, w: 100, h: 10 })),
-    lines: [[64, 300], [86, 380], [108, 260], [130, 340], [152, 200]].map(([y, w]) => ({ x: 182, y, w, h: 10 })),
+    heading: { x: 182, y: 61, w: 236, h: 14 },
+    lines: [[86, 380], [108, 260], [130, 340], [152, 200]].map(([y, w]) => ({ x: 182, y, w, h: 10 })),
     panel: { x: 182, y: 190, w: 290, h: 130 },
-    panelLines: [[210, 180], [232, 230], [254, 150]].map(([y, w]) => ({ x: 200, y, w, h: 10 })),
     button: { x: 500, y: 318, w: 112, h: 36 },
-    buttonLabel: { x: 526, y: 333, w: 60, h: 6 },
     dropdown: { x: 16, y: 36, w: 150, h: 120 },
     dropdownItems: [48, 72, 96, 120].map(y => ({ x: 30, y, w: 90, h: 10 })),
   };
 
   /* The stand-in as one list of shapes in painting order, so that the demonstrations (SVG, blocks) and the sandbox
      (a canvas, paintStandIn) paint the same screen. A shape of class sc-NAME is filled with the colour token
-     --screen-NAME of styles.css: by the stylesheet in an SVG, and read from it on a canvas. */
+     --screen-NAME of styles.css: by the stylesheet in an SVG, and read from it on a canvas. Lines of text are words,
+     and the panel carries small print, so that the lens has something to enlarge. */
   const shape = (cls, b, r = 0, name = '') => ({ cls, b, r, name });
-  const SHAPES = [
-    shape('sc-bg', { x: 0, y: 0, w: 640, h: 400 }),
-    shape('sc-side', LAYOUT.side),
-    shape('sc-bar', LAYOUT.bar),
-    ...LAYOUT.menus.map(b => shape('sc-block', b, 3)),
-    ...LAYOUT.sideLines.map(b => shape('sc-line', b, 5)),
-    ...LAYOUT.lines.map(b => shape('sc-line', b, 5)),
-    shape('sc-panel', LAYOUT.panel, 8),
-    ...LAYOUT.panelLines.map(b => shape('sc-line', b, 5)),
-    shape('sc-button', LAYOUT.button, 6, 'button'),
-    shape('sc-button-label', LAYOUT.buttonLabel, 3),
-  ];
+  const grow = (b, d) => ({ x: b.x - d, y: b.y - d, w: b.w + 2 * d, h: b.h + 2 * d });
+  const WORD_WIDTHS = [46, 30, 64, 38, 26, 54, 34, 70, 42, 28];
+
+  function words(b, cls, size = 1) {
+    const out = [];
+    const end = b.x + b.w, gap = 6 * size;
+    for (let x = b.x, i = b.y % WORD_WIDTHS.length; x < end; i++) {
+      let w = WORD_WIDTHS[i % WORD_WIDTHS.length] * size;
+      if (end - (x + w + gap) < 18 * size) w = end - x;
+      out.push(shape(cls, { x, y: b.y, w, h: b.h }, b.h / 2));
+      x += w + gap;
+    }
+    return out;
+  }
+
+  const SHAPES = standInShapes();
+
+  function standInShapes() {
+    const { panel: p, button: b } = LAYOUT;
+    const inPanel = (dx, dy, w, h) => ({ x: p.x + dx, y: p.y + dy, w, h });
+    return [
+      shape('sc-bg', { x: 0, y: 0, w: 640, h: 400 }),
+      shape('sc-side', LAYOUT.side),
+      shape('sc-bar', LAYOUT.bar),
+      shape('sc-edge', { x: 0, y: 36, w: 640, h: 1 }),
+      shape('sc-edge', { x: 150, y: 37, w: 1, h: 363 }),
+      ...LAYOUT.menus.map(m => shape('sc-block', m, 3)),
+      ...LAYOUT.sideLines.flatMap((s, i) => [
+        shape('sc-block', { x: s.x, y: s.y, w: 10, h: s.h }, 3),
+        shape('sc-line', { x: s.x + 16, y: s.y, w: [70, 52, 80, 60, 44][i], h: s.h }, s.h / 2)]),
+      shape('sc-block', LAYOUT.heading, 7),
+      ...LAYOUT.lines.flatMap(l => words(l, 'sc-line')),
+      shape('sc-edge', grow(p, 1), 9),
+      shape('sc-panel', p, 8),
+      shape('sc-block', inPanel(18, 16, 120, 10), 5),
+      ...[[36, 250], [50, 218]].flatMap(([dy, w]) => words(inPanel(18, dy, w, 8), 'sc-line')),
+      ...[[68, 236], [74, 252], [80, 180]].flatMap(([dy, w]) => words(inPanel(18, dy, w, 3), 'sc-line', 0.5)),
+      shape('sc-line', inPanel(18, 100, 58, 16), 8),
+      shape('sc-line', inPanel(82, 100, 46, 16), 8),
+      shape('sc-shade', { x: b.x, y: b.y + 1.5, w: b.w, h: b.h }, 6),
+      shape('sc-button', b, 6, 'button'),
+      shape('sc-button-label', { x: b.x + 26, y: b.y + 15, w: 60, h: 6 }, 3),
+    ];
+  }
+
   /* The stand-in application's first menu, open. */
-  const DROPDOWN = [shape('sc-dropdown', LAYOUT.dropdown, 6), ...LAYOUT.dropdownItems.map(b => shape('sc-line', b, 5))];
+  const DROPDOWN = [
+    shape('sc-edge', grow(LAYOUT.dropdown, 1), 7),
+    shape('sc-dropdown', LAYOUT.dropdown, 6),
+    ...LAYOUT.dropdownItems.map((b, i) => shape('sc-line', { x: b.x, y: b.y, w: [64, 82, 90, 56][i], h: b.h }, b.h / 2)),
+  ];
 
   const rect = (b, cls, extra) => svg('rect', Object.assign({ x: b.x, y: b.y, width: b.w, height: b.h, class: cls }, extra));
   const shapeNode = s => rect(s.b, s.cls, s.r ? { rx: s.r } : null);
