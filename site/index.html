@@ -79,24 +79,28 @@
   </section>
 
   <section class="section" id="problem">
-    <div class="wrap">
+    <div class="wrap problem">
       <h2>What we see in our own teaching</h2>
-      <p>A teacher shares a screen and wants to mark something on it. The pens built into the slide and meeting tools stop short: slides only, full screen only, a frozen picture, or ink that vanishes. So the teacher takes a screenshot, or stops to draw somewhere else. The lesson is interrupted, and the live screen is gone.</p>
-      <p>Afterwards the marks are gone too: frozen in a screenshot, or missing from the recording and from the slides shared with the class. The teacher explains the same thing again. The same happens in software training, demos and support.</p>
-      <p>The people watching put it like this, in our own lessons:</p>
-      <ul class="quotes">
-        <li>"I don't know where to look, and I miss the action."</li>
-        <li>"When the teacher stops to make a screenshot, I lose my place."</li>
-        <li>"I see what happened but not why."</li>
-        <li>"Afterwards I can't repeat it."</li>
-      </ul>
-      <p class="status-line">That is what we hear in our own teaching. It is not a finding from a study.</p>
+      <div class="problem-scene">
+        <p>A teacher shares a screen and wants to mark something on it. The pens built into the slide and meeting tools stop short: slides only, full screen only, a frozen picture, or ink that vanishes. So the teacher takes a screenshot, or stops to draw somewhere else. The lesson is interrupted, and the live screen is gone.</p>
+        <p>Afterwards the marks are gone too: frozen in a screenshot, or missing from the recording and from the slides shared with the class. The teacher explains the same thing again. The same happens in software training, demos and support.</p>
+      </div>
+      <div class="problem-voices">
+        <p>The people watching put it like this, in our own lessons:</p>
+        <ul class="quotes" role="list">
+          <li>"I don't know where to look, and I miss the action."</li>
+          <li>"When the teacher stops to make a screenshot, I lose my place."</li>
+          <li>"I see what happened but not why."</li>
+          <li>"Afterwards I can't repeat it."</li>
+        </ul>
+        <p class="status-line">That is what we hear in our own teaching. It is not a finding from a study.</p>
+      </div>
     </div>
   </section>
 
   <section class="section" id="today">
     <div class="wrap">
-      <h2>The live marks</h2>
+      <header class="section-head"><h2>The live marks</h2><span class="status status-today">Today</span></header>
       <p class="section-lead">The current build is a beta of the live marks. Everything below works today; nothing in it is a plan. Each picture is a demonstration drawn in the browser on a stand-in screen, not a screenshot. It plays once when it comes into view, and "Play again" plays it again.</p>
       <div class="features">
 
@@ -170,7 +174,7 @@
 
   <section class="section" id="planned">
     <div class="wrap">
-      <h2>The trace</h2>
+      <header class="section-head"><h2>The trace</h2><span class="status status-planned">Planned</span></header>
       <p class="tagline"><strong>Show, don't tell.</strong> Live markup with lasting steps.</p>
       <p>The marks are live today. The lasting steps are the trace, and the trace is planned: the build does not keep steps yet.</p>
       <p>A trace is the record of one session: a numbered list of steps, in order. Each step says what was done, who did it, and why, in the author's own words. A viewer follows it afterwards without the video, and repeats the task. A reason that was not given is marked "not given", never made up.</p>
@@ -216,21 +220,33 @@
   <section class="section" id="works-with">
     <div class="wrap">
       <h2>Works with</h2>
-      <p>Showtrace draws on top of the screen, so it works with the tools you already use: Zoom, Teams, Meet, OBS and Loom. The marks show in a whole-screen share or a display capture. A share of a single window does not include them.</p>
+      <p>Showtrace draws on top of the screen, so it works with the tools you already use:</p>
+      <ul class="apps" role="list">
+        <li>Zoom</li>
+        <li>Teams</li>
+        <li>Meet</li>
+        <li>OBS</li>
+        <li>Loom</li>
+      </ul>
+      <p>The marks show in a whole-screen share or a display capture. A share of a single window does not include them.</p>
     </div>
   </section>
 
   <section class="section" id="going">
     <div class="wrap">
-      <h2>Where this is going</h2>
+      <header class="section-head"><h2>Where this is going</h2><span class="status status-phase2">Phase 2</span></header>
       <p>Phase 2 is a direction, not a plan. Nothing of it is scheduled.</p>
       <p>More and more screens are operated on behalf of people: an AI agent clicks, types and navigates on someone's computer. The person whose computer it is becomes the audience, with the same questions a student has, and one more: "When an AI does it, I can't tell who did what."</p>
       <p>The same layer serves that person, in one of two intents.</p>
       <dl class="intents">
-        <dt>Learn ("teach me")</dt>
-        <dd>The AI goes slowly, marks each step on the live screen and states its reason. The trace keeps the steps, so the person can repeat them.</dd>
-        <dt>Oversee ("just do it")</dt>
-        <dd>Fast, but every action is marked on the live screen as it happens, so the person sees each one and can step in.</dd>
+        <div>
+          <dt>Learn ("teach me")</dt>
+          <dd>The AI goes slowly, marks each step on the live screen and states its reason. The trace keeps the steps, so the person can repeat them.</dd>
+        </div>
+        <div>
+          <dt>Oversee ("just do it")</dt>
+          <dd>Fast, but every action is marked on the live screen as it happens, so the person sees each one and can step in.</dd>
+        </div>
       </dl>
       <p>In the trace, an AI is an author of steps, next to a person. A person's step carries a filled dot and the person's name. An AI's step carries an open ring and the label AI, with the agent's name. The same for any vendor's agent. Showtrace does not operate the screen itself: it shows what another author did.</p>
 
@@ -288,6 +304,7 @@
     <p>Showtrace is made by Kees Leemeijer and Jarry Perez.</p>
     <p>A way to reach us follows once the owners have chosen it.</p>
     <p>Copyright 2026 Kees Leemeijer and Jarry Perez. All rights reserved until a licence is chosen. The typeface is Atkinson Hyperlegible Next by the Braille Institute, under the SIL Open Font License.</p>
+    <p><a href="#top">Back to the top</a></p>
   </div>
 </footer>
 </body>

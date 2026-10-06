@@ -511,13 +511,59 @@ kbd {
   color: var(--text-soft);
 }
 
+/* A section heading with the status word of what the section shows. */
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+/* The problem: the scene, and next to it, from 60rem, the words of the people watching. */
+@media (min-width: 60rem) {
+  .problem {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: var(--space-8);
+    align-items: start;
+  }
+
+  .problem > h2 {
+    grid-column: 1 / -1;
+  }
+}
+
 .quotes {
+  list-style: none;
   max-width: var(--measure);
-  padding-left: 1.25rem;
+  margin: 0 0 var(--space-4);
+  padding: 0;
 }
 
 .quotes li {
-  margin-bottom: 0.35em;
+  font-size: var(--text-l);
+  line-height: 1.35;
+  margin: 0 0 var(--space-3);
+  padding: 0.1em 0 0.1em var(--space-4);
+  border-left: 3px solid var(--rule-strong);
+  text-wrap: balance;
+}
+
+/* The tools the marks show in, by name; no logos, which are not ours to show. */
+.apps {
+  list-style: none;
+  margin: 0 0 1em;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  font-size: var(--text-l);
+  font-weight: 600;
 }
 
 /* The headline and the subline of brand.md, section 3, each on its own line. */
@@ -1079,15 +1125,32 @@ kbd {
   color: var(--text-soft);
 }
 
-/* Phase 2 intents */
+/* Phase 2 intents: Learn and Oversee side by side from 40rem, each under a rule. */
+
+.section .intents {
+  display: grid;
+  gap: var(--space-4) var(--space-6);
+  max-width: 48rem;
+  margin: var(--space-5) 0;
+}
+
+@media (min-width: 40rem) {
+  .section .intents {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.intents > div {
+  border-top: 2px solid var(--rule-strong);
+  padding-top: var(--space-3);
+}
 
 .intents dt {
-  font-weight: 600;
-  margin-top: 0.75em;
+  font-weight: 700;
 }
 
 .intents dd {
-  margin: 0.15em 0 0;
+  margin: var(--space-1) 0 0;
 }
 
 /* Download */
@@ -1121,6 +1184,10 @@ kbd {
 .site-footer p {
   margin: 0 0 0.6em;
   max-width: var(--measure);
+}
+
+.site-footer p:last-child {
+  margin: var(--space-4) 0 0;
 }
 
 /* Reduced motion: everything appears at once (brand.md, 6.6). The script shows only end states. */
