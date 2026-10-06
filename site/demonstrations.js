@@ -858,64 +858,83 @@
      Errors. A build, reset or play that throws takes its demonstration out: its card keeps its text, the other
      demonstrations go on, and the error is logged once. */
 
-  /* 1. Draw on the live screen. */
+  /* The pointer goes to a button of the stand-in toolbar and clicks it, as a tool, a popup or a setting is chosen in
+     the build; changes are what the click does to the toolbar. */
+  async function pick(run, h, id, changes) {
+    await glide(run, h, h.tb.centre(id), 450);
+    await run.pause(150);
+    if (changes) h.tb.set(changes);
+  }
+
+  /* 1. Draw on the live screen (spec 6.4). Each tool is picked on the stand-in toolbar first, as in the build, where
+     picking a drawing tool also turns draw mode on. */
   const drawDemo = {
     build(card, mount) {
       const h = stage(card, mount, { alt: 'A stand-in screen. The demonstration draws seven kinds of marks on it.' });
       h.sc = screen(h.svg, 'draw');
-      addGlow(h);
       h.doc = new Doc(h.sc.marks);
       h.tb = toolbar(h, { draw: true });
       addPointer(h, P(400, 240));
-      const note = () => h.say(`${h.doc.count} ${h.doc.count === 1 ? 'mark' : 'marks'} on the screen.`);
+      /* A control acts on the end state: a play in progress jumps there first. */
+      const act = (fn, nothing) => async () => {
+        await stop(h);
+        const text = fn();
+        if (!text) { h.say(nothing); return; }
+        h.end(text, marksAlt(h));
+      };
+      const count = () => `${h.doc.count} ${h.doc.count === 1 ? 'mark' : 'marks'} on the screen.`;
       h.controls.append(
-        button('Undo', () => { if (h.doc.undo()) note(); }),
-        button('Redo', () => { if (h.doc.redo()) note(); }),
-        button('Clear', () => { if (h.doc.clear()) h.say('Cleared. Undo brings the marks back in one step.'); }));
+        button('Undo', act(() => h.doc.undo() && `Undo. ${count()}`, 'Nothing to undo.')),
+        button('Redo', act(() => h.doc.redo() && `Redo. ${count()}`, 'Nothing to redo.')),
+        button('Clear', act(() => h.doc.clear() && 'Cleared. Undo brings every mark back in one step.', 'Nothing to clear.')));
       return h;
     },
     reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ active: null }); movePointer(h, P(400, 240)); },
     async play(run, h) {
-      h.tb.set({ active: 'pen' });
-      h.say('Pen: a smooth stroke, 4 px, in the pen colour.');
-      await drawStroke(run, h, curve(P(190, 172), P(250, 160), P(330, 184), P(400, 170), 36, 1.2), { ms: 900 });
+      const tool = async (id, text) => { await pick(run, h, id, { active: id }); h.say(text); };
+      await tool('pen', 'Pen: a smooth stroke, 4 px, in the pen colour.');
+      tagMark(await drawStroke(run, h, curve(P(190, 172), P(250, 160), P(330, 184), P(400, 170), 36, 1.2), { ms: 900 }), 'a pen stroke');
       await run.pause(300);
-      h.tb.set({ active: 'highlighter' });
-      h.say('Highlighter: three times wider, translucent, flat ends.');
-      await drawStroke(run, h, curve(P(186, 91), P(280, 90), P(380, 92), P(470, 91), 24, 0.5), { highlighter: true, ms: 700 });
+      await tool('highlighter', 'Highlighter: three times wider, translucent, flat ends.');
+      tagMark(await drawStroke(run, h, curve(P(186, 91), P(280, 90), P(380, 92), P(470, 91), 24, 0.5), { highlighter: true, ms: 700 }), 'a highlighter stroke');
       await run.pause(300);
-      h.tb.set({ active: 'line' });
-      h.say('Line. Hold Shift for 45 degree steps.');
-      await drawShape(run, h, 'line', P(560, 120), P(480, 190), { ms: 500 });
+      /* Upright, one of the 45 degree steps that Shift gives (spec 6.4). */
+      await tool('line', 'Line. Hold Shift for 45 degree steps.');
+      tagMark(await drawShape(run, h, 'line', P(170, 82), P(170, 160), { ms: 500 }), 'a line');
       await run.pause(300);
-      h.tb.set({ active: 'arrow' });
-      h.say('Arrow: the head sits at the end and grows with the width.');
-      await drawShape(run, h, 'arrow', P(430, 384), P(496, 340), { ms: 600 });
+      await tool('arrow', 'Arrow: the head sits at the end and grows with the width.');
+      tagMark(await drawShape(run, h, 'arrow', P(430, 384), P(496, 340), { ms: 600 }), 'an arrow');
       await run.pause(300);
-      h.tb.set({ active: 'rectangle' });
-      h.say('Rectangle. Hold Shift for a square.');
-      await drawShape(run, h, 'rectangle', P(172, 180), P(482, 330), { ms: 600 });
+      await tool('rectangle', 'Rectangle. Hold Shift for a square.');
+      tagMark(await drawShape(run, h, 'rectangle', P(176, 182), P(480, 328), { ms: 600 }), 'a rectangle');
       await run.pause(300);
-      h.tb.set({ active: 'ellipse' });
-      h.say('Ellipse. Hold Shift for a circle.');
-      await drawShape(run, h, 'ellipse', P(8, 100), P(130, 126), { ms: 600 });
+      await tool('ellipse', 'Ellipse. Hold Shift for a circle.');
+      tagMark(await drawShape(run, h, 'ellipse', P(8, 100), P(130, 126), { ms: 600 }), 'an ellipse');
       await run.pause(300);
-      h.tb.set({ active: 'text' });
-      h.say('Text: click to type. Click the text later to edit, move or resize it.');
-      await drawText(run, h, P(500, 272), 'Click here', { ms: 700 });
-      await glide(run, h, P(590, 250), 300);
+      await tool('text', 'Text: click to type. Click the text later to edit, move or resize it.');
+      tagMark(await drawText(run, h, P(500, 272), 'Click here', { ms: 700 }), 'the text Click here');
       await run.pause(400);
-      h.tb.set({ active: null });
-      h.say('Undo takes the text back.');
-      await run.pause(300);
+      await pick(run, h, 'undo');
+      h.say('Undo, on the toolbar, takes the text back.');
       h.doc.undo();
-      await run.pause(700);
+      await run.pause(900);
+      await pick(run, h, 'redo');
       h.say('Redo brings it back.');
       h.doc.redo();
       await run.pause(600);
-      h.end('Seven kinds of marks on the live screen, on top of any application. Undo, redo and clear below work on them.');
+      h.end('Seven kinds of marks on the live screen, on top of any application. Undo, redo and clear below work on them.', marksAlt(h));
     },
   };
+
+  /* What a mark is, for the text alternative of the stand-in screen. */
+  function tagMark(node, words) { node.setAttribute('data-kind', words); return node; }
+
+  function marksAlt(h) {
+    const kinds = [...h.sc.marks.children].map(n => n.getAttribute('data-kind')).filter(Boolean);
+    if (!kinds.length) return 'A stand-in screen with no marks.';
+    const list = kinds.length === 1 ? kinds[0] : `${kinds.slice(0, -1).join(', ')} and ${kinds[kinds.length - 1]}`;
+    return `A stand-in screen with ${kinds.length === 1 ? 'one mark' : `${kinds.length} marks`}: ${list}.`;
+  }
 
   /* 2. Point: laser, halo, magnifier. */
   const pointDemo = {
