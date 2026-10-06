@@ -812,7 +812,7 @@
        h.card       the feature card the demonstration belongs to.
        h.svg        the stand-in screen, viewBox 0 0 640 400, role img. Its text alternative is opts.alt until a play
                     ends, then the alt of h.end.
-       h.state      the state line, a p. Nothing goes in it; the capture demonstration puts its thumbnail after it.
+       h.state      the state line, a p. Nothing goes in it; the capture demonstration puts its thumbnail after the controls.
        h.controls   the controls. The frame puts the play control first.
        h.say(...parts)          shows a line in the state line. Parts are strings, and { key: 'Escape' } for a key.
        h.end(text, alt = text)  shows the end line; alt becomes the text alternative of the stand-in screen.
