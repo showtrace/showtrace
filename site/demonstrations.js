@@ -652,6 +652,62 @@
 
   /* ---------- The demonstrations ---------- */
 
+  /* The contract between the frame and a demonstration.
+
+     A demonstration is an object { build, reset, play } in DEMOS, under the name in its card's data-demo.
+
+     build(card, mount) runs once, at load. It calls stage(card, mount, { alt, label }) and returns the h that stage
+     gives, with what the demonstration adds: the stand-in screen, the document, the toolbar, the pointer, and its own
+     controls appended to h.controls. It plays nothing. From stage, h carries:
+       h.card       the feature card the demonstration belongs to.
+       h.svg        the stand-in screen, viewBox 0 0 640 400, role img. Its text alternative is opts.alt until a play
+                    ends, then the alt of h.end.
+       h.state      the state line, a p. Nothing goes in it; the capture demonstration puts its thumbnail after it.
+       h.controls   the controls. The frame puts the play control first.
+       h.say(...parts)          shows a line in the state line. Parts are strings, and { key: 'Escape' } for a key.
+       h.end(text, alt = text)  shows the end line; alt becomes the text alternative of the stand-in screen.
+       h.run        the run in progress, or null. Read it; never set or cancel it.
+       h.box and h.frame belong to the frame, and no demonstration touches them.
+
+     reset(h) brings the picture back to its start state, whatever a play or a control left. The frame calls it before
+     every play and around every rehearsal, so it is complete, quick and safe to repeat.
+
+     play(run, h) is async. It takes the picture from the start state to the end state, says what happens with h.say
+     and ends with h.end. Every wait goes through the run: run.tween(ms, fn, ease) calls fn with the eased progress
+     every frame, run.pause(ms) is rhythm between steps, and run.hold(ms) is time the build itself takes (spec 5.4).
+     No setTimeout, requestAnimationFrame or listener of its own. The frame cancels a play by rejecting its pending
+     waits with CANCEL, so a play lets every rejection pass: no try/catch around an await.
+
+     An instant run (run.instant) shows the end state at once: tween calls fn(1), pause and hold resolve at once, and
+     the play ends before the browser paints. The frame uses one under reduced motion, on a hidden tab, for Stop and
+     stop(h), when the stage leaves the view, and for the rehearsal. A play reaches the same end state and says the
+     same lines in an instant run as with motion.
+
+     The rehearsal. At load and before each play the frame plays the demonstration as an instant run, from reset to
+     its end, and resets it again; meanwhile h.say and h.end only collect the lines. The state line then keeps the
+     height of the longest, so that the card does not grow while the play runs. A play thus runs at least twice for
+     every time it is seen, and everything it changes, reset changes back.
+
+     Starting and stopping. The frame starts a play once when 35 percent of its stage is in view, and on the play
+     control: Play, Stop while a play moves, Play again after. It stops a play at its end state on Stop, when the
+     stage leaves the view, when the tab is hidden and when reduced motion is turned on. A control of a demonstration
+     that changes the picture first awaits stop(h): a play in progress jumps to its end state, so the control changes a
+     known picture. It then changes the picture at once and says what it did with h.say. A control that plays the
+     demonstration again calls start(h).
+
+     The live region announces that a play with motion starts ("<card title>: the demonstration is playing.") and how
+     it ends ("... has ended." or, after Stop, "... has stopped.", then the end line). The lines in between are shown
+     and not announced. What h.say or h.end says outside a play, after a control, is announced as it is. A stop the
+     visitor did not ask for is silent.
+
+     Space. Before the script runs, styles.css reserves the stage, the state line (3 lines for a stage of 30 rem and
+     wider, 4 below that, 6 below 20.5 rem) and one row of controls; a demonstration with more controls, and the
+     thumbnail, have their own heights there. A longer line or more controls make the card grow when it mounts, so
+     measure again after changing them.
+
+     Errors. A build, reset or play that throws takes its demonstration out: its card keeps its text, the other
+     demonstrations go on, and the error is logged once. */
+
   /* 1. Draw on the live screen. */
   const drawDemo = {
     build(card, mount) {
