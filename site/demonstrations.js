@@ -20,16 +20,24 @@
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const darkScheme = window.matchMedia('(prefers-color-scheme: dark)');
 
-  /* The build's ink and sizes (spec 5.4, 5.6, 6.4, 6.6, 6.7, 7.1). The brand teal is never ink (brand.md, 6.2). */
+  /* The build's ink and sizes, in stand-in units that stand for the build's pixels. The brand teal is never ink
+     (brand.md, 6.2). The pen #FF3B30, the highlighter and the halo #FFCC00 are the defaults of spec 5.6; the laser red
+     #FF1E1E is the build's (LaserTool; spec 6.6 says red). */
   const INK = { pen: '#FF3B30', highlighter: '#FFCC00', laser: '#FF1E1E', halo: '#FFCC00' };
+  /* Pen 4 px, a width from 1 to 40 (spec 5.6, 7.1). The highlighter draws 3 times the width at 35 percent opacity, with
+     flat caps (spec 6.2, 7.1). Text is Segoe UI, 24 px (spec 6.4, 7.1). Fading ink goes in 600 ms (spec 5.4, 7.1). */
   const PEN_WIDTH = 4;
   const HIGHLIGHTER_FACTOR = 3;
   const HIGHLIGHTER_OPACITY = 0.35;
+  const TEXT_SIZE = 24;
   const FADE_OUT_MS = 600;
+  /* The laser: a 10 px dot and a trail of 1.5 s (spec 6.6, 7.1), whose segments are 6 px wide when new and narrow to
+     30 percent as they fade (the build's LaserTool). The halo: 40 px, yellow, 40 percent (spec 5.6, 7.1). */
   const LASER = { dot: 10, trail: 6, trailMs: 1500 };
   const HALO = { diameter: 40, opacity: 0.4 };
-  /* The lens is 320 px on the real screen (spec 6.7); the stand-in screen is not to scale. */
-  const LENS = { size: 200, start: 2 };
+  /* The lens: a rounded square of 320 px (here 200: the stand-in is not to scale) with the corners of the build's lens
+     window, 2x at first, 1.5x to 8x in steps of 0.5x (spec 6.7, 7.1). */
+  const LENS = { size: 200, radius: 12, start: 2 };
   /* The 32 colours of the palette, in display order (spec 5.8). */
   const PALETTE = [
     '#000000', '#FFFFFF', '#808080', '#C0C0C0', '#FF3B30', '#FF9500', '#FFCC00', '#34C759',
@@ -169,7 +177,8 @@
     return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
   }
 
-  /* The build's arrow head: at the end point, at least 12 px, 4 times the width, 28 degrees each side (ShapeGeometry). */
+  /* The build's arrow head (spec 6.4: at the end point, growing with the width; ShapeGeometry.ArrowHead): two wings of
+     4 times the width and at least 12 px, 28 degrees each side. */
   function arrowHead(start, end, width) {
     const length = Math.max(12, width * 4);
     const angle = Math.atan2(end.y - start.y, end.x - start.x);
@@ -419,6 +428,8 @@
 
   /* ---------- Marks ---------- */
 
+  /* The stroke of a mark. o: width (the pen's 4 by default), colour, highlighter (3 times the width, 35 percent, flat
+     caps: spec 6.2), cls (a class that colours it instead, such as ai-ink), dashed (an AI's marks: brand.md, section 7). */
   function inkAttrs(o) {
     const width = o.width || PEN_WIDTH;
     const a = { fill: 'none', 'stroke-width': o.highlighter ? width * HIGHLIGHTER_FACTOR : width, 'stroke-linecap': o.highlighter ? 'butt' : 'round', 'stroke-linejoin': 'round' };
@@ -444,7 +455,8 @@
     return path;
   }
 
-  /* A line, arrow, rectangle or ellipse dragged from one point to another, with a live preview (spec 6.4). */
+  /* A line, arrow, rectangle or ellipse dragged from one point to another, with a live preview; the arrow's head at the
+     end point, as the build computes it (spec 6.4, arrowHead). */
   async function drawShape(run, h, kind, from, to, o = {}) {
     const doc = o.doc || h.doc;
     const width = o.width || PEN_WIDTH;
@@ -478,10 +490,10 @@
     return node;
   }
 
-  /* Text typed at a point, in the pen colour (spec 6.4). */
+  /* Text typed at a point, its top-left at the click, in the pen colour, Segoe UI 24 px (spec 6.4, 7.1). */
   async function drawText(run, h, at, str, o = {}) {
     const doc = o.doc || h.doc;
-    const node = svg('text', { x: at.x, y: at.y, class: 'sc-text', fill: o.colour || INK.pen, 'font-size': o.size || 22 });
+    const node = svg('text', { x: at.x, y: at.y, class: 'sc-text', fill: o.colour || INK.pen, 'font-size': o.size || TEXT_SIZE });
     await glide(run, h, at, 300);
     doc.add(node);
     await run.tween(o.ms || 700, t => { node.textContent = str.slice(0, Math.round(t * str.length)); }, linear);
@@ -530,11 +542,11 @@
   /* The magnifier lens (spec 6.7): a rounded square that shows the screen under the pointer enlarged. */
   function addLens(h) {
     const id = `lens-${h.sc.id}`;
-    const clipRect = svg('rect', { width: LENS.size, height: LENS.size, rx: 16 });
+    const clipRect = svg('rect', { width: LENS.size, height: LENS.size, rx: LENS.radius });
     const clip = svg('clipPath', { id }, clipRect);
     h.sc.defs.append(clip);
     const use = svg('use', { href: `#sc-${h.sc.id}` });
-    const frame = svg('rect', { width: LENS.size, height: LENS.size, rx: 16, class: 'lens-frame' });
+    const frame = svg('rect', { width: LENS.size, height: LENS.size, rx: LENS.radius, class: 'lens-frame' });
     const g = svg('g', { class: 'lens' }, svg('g', { 'clip-path': `url(#${id})` }, use), frame);
     extra(h, g);
     extra(h, clip);

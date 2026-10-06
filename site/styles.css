@@ -663,8 +663,9 @@ kbd {
 .sc-dropdown { fill: var(--screen-dropdown); }
 .mon-frame { fill: var(--screen-frame); }
 
+/* Text marks are Segoe UI in the build (spec 6.2); other systems show their own interface font. */
 .sc-text {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
   dominant-baseline: hanging;
 }
 
