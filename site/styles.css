@@ -703,24 +703,34 @@ kbd {
   stroke-width: 2;
 }
 
-/* The stand-in toolbar. Light: #F7F7F8 at 95 percent, text #202124, accent #0A6B7A. Dark: #202124 at 94 percent,
-   text #EEEEEE, accent #4DD0E1. The draw-mode glow is #00E5FF in both (spec 6.9). Auto follows the visitor. */
+/* The stand-in toolbar, in the build's theme colours (spec 6.9). Light: #F7F7F8 at 95 percent, text #202124, accent
+   #0A6B7A, the active tint and the draw-mode button #00A3BF at 20 percent. Dark: #202124 at 94 percent, text #EEEEEE,
+   accent #4DD0E1, the tints #4DD0E1 at 25 and 33 percent. Separators, popup edges, swatch edges and fields as the
+   build's. The draw-mode glow is #00E5FF in both. Auto follows the visitor. */
 .tb,
 .tb-light {
   color: #202124;
   --tb-shell: rgba(247, 247, 248, 0.95);
+  --tb-solid: #F7F7F8;
   --tb-active: rgba(0, 163, 191, 0.2);
+  --tb-mode-on: rgba(0, 163, 191, 0.2);
   --tb-accent: #0A6B7A;
   --tb-sep: rgba(0, 0, 0, 0.15);
+  --tb-popup-edge: rgba(0, 0, 0, 0.15);
+  --tb-swatch-edge: rgba(0, 0, 0, 0.2);
   --tb-field: rgba(0, 0, 0, 0.08);
 }
 
 .tb-dark {
   color: #EEEEEE;
   --tb-shell: rgba(32, 33, 36, 0.94);
+  --tb-solid: #202124;
   --tb-active: rgba(77, 208, 225, 0.25);
+  --tb-mode-on: rgba(77, 208, 225, 0.33);
   --tb-accent: #4DD0E1;
   --tb-sep: rgba(255, 255, 255, 0.2);
+  --tb-popup-edge: rgba(255, 255, 255, 0.2);
+  --tb-swatch-edge: rgba(255, 255, 255, 0.2);
   --tb-field: rgba(255, 255, 255, 0.13);
 }
 
@@ -728,26 +738,34 @@ kbd {
   .tb-auto {
     color: #EEEEEE;
     --tb-shell: rgba(32, 33, 36, 0.94);
+    --tb-solid: #202124;
     --tb-active: rgba(77, 208, 225, 0.25);
+    --tb-mode-on: rgba(77, 208, 225, 0.33);
     --tb-accent: #4DD0E1;
     --tb-sep: rgba(255, 255, 255, 0.2);
+    --tb-popup-edge: rgba(255, 255, 255, 0.2);
+    --tb-swatch-edge: rgba(255, 255, 255, 0.2);
     --tb-field: rgba(255, 255, 255, 0.13);
   }
 }
 
 .tb-shell { fill: var(--tb-shell); }
-.tb-plain { fill: none; }
+.tb-popup { stroke: var(--tb-popup-edge); stroke-width: 1; }
 .tb-active { fill: var(--tb-active); }
+.tb-mode-on { fill: var(--tb-mode-on); }
+/* The build shows a button that is on by its tint alone, 1.2:1 to 1.8:1 against the shell. The stand-in adds an
+   outline in the accent, so that the state reads at card size with 3:1 or more (WCAG 1.4.11). */
+.tb-edge { fill: none; stroke: var(--tb-accent); stroke-width: 1.5; }
 .tb-sep { stroke: var(--tb-sep); stroke-width: 1; }
 .tb-accent { color: var(--tb-accent); }
 .tb-stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .tb-fill { fill: currentColor; }
 .tb-ring { fill: none; stroke: currentColor; stroke-width: 1.5; opacity: 0.8; }
-.tb-main-disc { fill: #0E8192; }
-.tb-main-arc { fill: none; stroke: #FFFFFF; stroke-width: 1.75; stroke-linecap: round; }
-.tb-main-dot { fill: #FFFFFF; }
-.tb-swatch { stroke: var(--tb-sep); stroke-width: 1; }
-.tb-swatch-on { stroke: var(--tb-accent); stroke-width: 2.5; }
+.tb-main-disc { fill: currentColor; }
+.tb-main-arc { fill: none; stroke: var(--tb-solid); stroke-width: 1.75; stroke-linecap: round; }
+.tb-main-dot { fill: var(--tb-solid); }
+.tb-swatch { stroke: var(--tb-swatch-edge); stroke-width: 1; }
+.tb-swatch-on { stroke: currentColor; stroke-width: 2; }
 .tb-textbutton { fill: var(--tb-field); }
 .tb-field { fill: var(--tb-field); }
 .tb-text { fill: currentColor; font-size: 13px; font-family: system-ui, "Segoe UI", sans-serif; }
