@@ -1585,35 +1585,65 @@
 
   /* ---------- The sandbox: draw on the stand-in screen, save a PNG ---------- */
 
-  const SCREEN_COLOURS = {
-    light: { 'sc-bg': '#ECECEC', 'sc-bar': '#E0E0E0', 'sc-side': '#E4E4E4', 'sc-block': '#CDCDCD', 'sc-line': '#D4D4D4', 'sc-panel': '#F4F4F4', 'sc-button': '#BDBDBD', 'sc-button-label': '#8E8E8E', label: '#1A1F24', labelText: '#FFFFFF' },
-    dark: { 'sc-bg': '#2E2E2E', 'sc-bar': '#383838', 'sc-side': '#333333', 'sc-block': '#4A4A4A', 'sc-line': '#444444', 'sc-panel': '#363636', 'sc-button': '#5A5A5A', 'sc-button-label': '#8A8A8A', label: '#EEEEEE', labelText: '#1A1F24' },
+  /* Eight of the palette's 32 colours (spec 5.8), with the names a screen reader says. The pen starts in #FF3B30 and
+     the highlighter in #FFCC00, as in the build (spec 5.6). */
+  const SANDBOX_COLOURS = [
+    ['#FF3B30', 'Red'], ['#FF9500', 'Orange'], ['#FFCC00', 'Yellow'], ['#34C759', 'Green'],
+    ['#007AFF', 'Blue'], ['#AF52DE', 'Purple'], ['#000000', 'Black'], ['#FFFFFF', 'White'],
+  ];
+
+  /* What the state line says. It speaks only after a control, so it is a polite live region of its own. */
+  const marksOf = n => (n === 0 ? 'No marks' : n === 1 ? '1 mark' : `${n} marks`);
+  const SANDBOX_LINES = {
+    start: 'Draw with a mouse, a pen or a finger. The marks stay in this page.',
+    pen: 'Pen: a stroke at the build\'s 4 px, scaled with the stand-in screen, smoothed when you let go.',
+    highlighter: 'Highlighter: three times the pen\'s width, translucent, with flat ends.',
+    arrow: 'Arrow: drag from its tail to its head. Hold Shift for 45 degree steps.',
+    fade: s => (s ? `Fading ink, ${s} s: the marks you draw next fade after ${s} s. Marks already drawn keep their own time.` : 'Fading ink off: the marks you draw next stay. Marks already drawn keep their own time.'),
+    undo: n => `Undone. ${marksOf(n)} on the screen.`,
+    redo: n => `Redone. ${marksOf(n)} on the screen.`,
+    clear: 'Cleared. Undo brings the marks back in one step.',
+    none: what => `Nothing to ${what}.`,
+    saved: name => `Your browser saves the picture as ${name}, labelled as a demonstration. Nothing was sent or stored.`,
+    noPng: 'This browser cannot make a PNG of the picture.',
   };
-  const SANDBOX_COLOURS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#AF52DE', '#000000', '#FFFFFF'];
+
+  /* A line or an arrow held to 45 degree steps while Shift is down (spec 6.4). */
+  function snap(from, to) {
+    const step = Math.PI / 4;
+    const angle = Math.round(Math.atan2(to.y - from.y, to.x - from.x) / step) * step;
+    const length = Math.hypot(to.x - from.x, to.y - from.y);
+    return P(from.x + length * Math.cos(angle), from.y + length * Math.sin(angle));
+  }
+
+  /* The light tokens of the stylesheet's own :root rule, or null. A printed page is light whatever the screen's scheme
+     (styles.css), and a canvas holds pixels, so for paper the sandbox paints its stand-in again with these. */
+  function lightTokens() {
+    for (const sheet of document.styleSheets) {
+      let rules;
+      try { rules = sheet.cssRules; } catch (_) { continue; }
+      for (const rule of rules) if (rule.selectorText === ':root') return rule.style;
+    }
+    return null;
+  }
 
   function sandbox(root) {
     const W = 640, H = 400;
-    const canvas = el('canvas', { class: 'sandbox-canvas', role: 'img', 'aria-label': 'A stand-in screen to draw on. No marks yet.' });
+    const canvas = el('canvas', { class: 'sandbox-canvas', role: 'img' });
     const stageBox = el('div', { class: 'demo-stage sandbox-stage' }, canvas, el('span', { class: 'demo-label', text: 'Demonstration' }));
-    const state = el('p', { class: 'demo-state', text: 'Draw with a mouse, a pen or a finger. The marks stay in this page only.' });
+    /* The longest lines lie hidden under the one that shows, so the state line keeps its height (as in a card). */
+    const line = el('span', { class: 'demo-state-line', role: 'status', 'aria-live': 'polite', text: SANDBOX_LINES.start });
+    const fits = el('span', { class: 'demo-state-fits', 'aria-hidden': 'true' },
+      ...[SANDBOX_LINES.pen, SANDBOX_LINES.fade(20), SANDBOX_LINES.fade(0), SANDBOX_LINES.undo(88), SANDBOX_LINES.clear,
+        SANDBOX_LINES.saved(`Showtrace demonstration ${stamp(new Date())}.png`), SANDBOX_LINES.noPng].map(text => el('span', { text })));
+    const state = el('p', { class: 'demo-state' }, line, fits);
+    const say = text => { line.textContent = text; };
     const ctx = canvas.getContext('2d');
     let scale = 1, dpr = 1;
     const items = [];
-    let done = [], undone = [], current = null, frame = 0;
+    let done = [], undone = [], current = null, frame = 0, timer = 0;
     let tool = 'pen', fade = 0;
     const colours = { pen: INK.pen, highlighter: INK.highlighter };
-
-    function palette() { return SCREEN_COLOURS[darkScheme.matches ? 'dark' : 'light']; }
-
-    function paintScreen(c, k) {
-      paintStandIn(c, k);
-    }
-
-    function roundRect(c, x, y, w, h, r) {
-      c.beginPath();
-      if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h);
-      c.fill();
-    }
 
     /* 1 until the item's fade time, then down to 0 over 600 ms; null once it has gone (spec 5.4). */
     function alphaOf(item, now) {
@@ -1637,30 +1667,39 @@
         c.moveTo(item.to.x, item.to.y); c.lineTo(l.x, l.y);
         c.moveTo(item.to.x, item.to.y); c.lineTo(r.x, r.y);
       } else {
-        const pts = item.committed ? smooth(item.points) : item.points;
-        pts.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
-        if (pts.length === 1) c.lineTo(pts[0].x + 0.1, pts[0].y);
+        item.points.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
+        if (item.points.length === 1) c.lineTo(item.points[0].x + 0.1, item.points[0].y);
       }
       c.stroke();
       c.globalAlpha = 1;
     }
 
+    /* Paints the stand-in and the marks. While a mark fades out, the next frame paints again; before that, one timer
+       waits until the next mark starts to fade, so that nothing runs while every mark holds still. */
     function render() {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      frame = timer = 0;
       const now = performance.now();
       ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
       ctx.clearRect(0, 0, W, H);
-      paintScreen(ctx, false);
-      let fading = false;
+      paintStandIn(ctx, false);
+      let fadingOut = false, next = Infinity;
       for (const item of [...items]) {
         const alpha = alphaOf(item, now);
         if (alpha === null) { expire(item); continue; }
-        if (item.fadeAfter) fading = true;
         paintItem(ctx, item, alpha);
+        if (!item.fadeAfter) continue;
+        const begins = item.createdAt + item.fadeAfter;
+        if (now >= begins) fadingOut = true; else next = Math.min(next, begins);
       }
       if (current) paintItem(ctx, current, 1);
-      if (fading && !frame) frame = requestAnimationFrame(() => { frame = 0; render(); });
+      if (fadingOut) frame = requestAnimationFrame(render);
+      else if (next < Infinity) timer = setTimeout(render, next - now);
     }
 
+    /* Fade expiry, as in the build: the mark leaves the page, and every undo step that references it leaves both
+       stacks, so that undo never brings expired ink back (spec 5.2). */
     function expire(item) {
       items.splice(items.indexOf(item), 1);
       done = done.filter(c => !c.items.includes(item));
@@ -1668,21 +1707,25 @@
       describe();
     }
 
+    /* The text alternative of the canvas: what is drawn on it now. */
     function describe() {
-      const strokes = items.filter(i => i.kind === 'stroke' && !i.highlighter).length;
-      const marks = items.filter(i => i.highlighter).length;
-      const arrows = items.filter(i => i.kind === 'arrow').length;
-      const parts = [];
-      if (strokes) parts.push(`${strokes} pen ${strokes === 1 ? 'stroke' : 'strokes'}`);
-      if (marks) parts.push(`${marks} highlighter ${marks === 1 ? 'stroke' : 'strokes'}`);
-      if (arrows) parts.push(`${arrows} ${arrows === 1 ? 'arrow' : 'arrows'}`);
-      canvas.setAttribute('aria-label', parts.length ? `A stand-in screen with ${parts.join(', ')}.` : 'A stand-in screen to draw on. No marks yet.');
+      const count = (n, one, many) => (n ? [`${n} ${n === 1 ? one : many}`] : []);
+      const parts = [
+        ...count(items.filter(i => i.kind === 'stroke' && !i.highlighter).length, 'pen stroke', 'pen strokes'),
+        ...count(items.filter(i => i.highlighter).length, 'highlighter stroke', 'highlighter strokes'),
+        ...count(items.filter(i => i.kind === 'arrow').length, 'arrow', 'arrows'),
+      ];
+      const fading = items.filter(i => i.fadeAfter).length;
+      const text = parts.length ? `A stand-in screen with ${parts.join(', ')}${fading ? `, ${fading} of them in fading ink` : ''}.` : 'A stand-in screen to draw on. No marks yet.';
+      canvas.setAttribute('aria-label', text);
     }
 
     function exec(command) { command.redo(); done.push(command); undone = []; render(); describe(); }
 
+    /* On release a stroke is replaced by its smoothed form (spec 5.3), and the mark takes the fading time set now
+       (spec 5.4). */
     function commit(item) {
-      item.committed = true;
+      if (item.kind === 'stroke') item.points = smooth(item.points);
       item.createdAt = performance.now();
       item.fadeAfter = fade ? fade * 1000 : null;
       exec({ items: [item], redo: () => items.push(item), undo: () => items.splice(items.indexOf(item), 1) });
@@ -1698,25 +1741,27 @@
       return { highlighter: false, colour: colours.pen, width: PEN_WIDTH };
     }
 
+    /* One pointer draws at a time: a second finger on the screen does not start a second mark. */
     canvas.addEventListener('pointerdown', e => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || current) return;
       try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* a synthetic event has no pointer to capture */ }
       const p = pos(e);
-      current = tool === 'arrow' ? Object.assign({ kind: 'arrow', from: p, to: p }, style()) : Object.assign({ kind: 'stroke', points: [p] }, style());
+      current = Object.assign(tool === 'arrow' ? { kind: 'arrow', from: p, to: p } : { kind: 'stroke', points: [p] }, style(), { pointer: e.pointerId });
       render();
       e.preventDefault();
     });
     canvas.addEventListener('pointermove', e => {
-      if (!current) return;
+      if (!current || e.pointerId !== current.pointer) return;
       const p = pos(e);
-      if (current.kind === 'arrow') current.to = p;
+      if (current.kind === 'arrow') current.to = e.shiftKey ? snap(current.from, p) : p;
       else { const last = current.points[current.points.length - 1]; if (Math.hypot(p.x - last.x, p.y - last.y) >= 1) current.points.push(p); }
       render();
     });
-    const finish = () => {
-      if (!current) return;
+    const finish = e => {
+      if (!current || e.pointerId !== current.pointer) return;
       const item = current;
       current = null;
+      delete item.pointer;
       /* A click without a drag creates no shape; a click with the pen draws a dot (checklist). */
       if (item.kind === 'arrow' && Math.hypot(item.to.x - item.from.x, item.to.y - item.from.y) < 4) { render(); return; }
       commit(item);
@@ -1735,14 +1780,14 @@
       render();
     }
 
-    /* Controls. */
+    /* Controls. A tool and a colour are toggles; their pressed state says which is on. */
     const pressedIn = (buttons, chosen) => buttons.forEach(([key, b]) => b.setAttribute('aria-pressed', String(key === chosen)));
     const toolButtons = [['pen', 'Pen'], ['highlighter', 'Highlighter'], ['arrow', 'Arrow']].map(([key, label]) => {
-      const b = button(label, () => { tool = key; pressedIn(toolButtons, tool); swatchState(); }, { 'aria-pressed': String(key === tool) });
+      const b = button(label, () => { tool = key; pressedIn(toolButtons, tool); swatchState(); say(SANDBOX_LINES[key]); }, { 'aria-pressed': String(key === tool) });
       return [key, b];
     });
-    const swatches = SANDBOX_COLOURS.map(hex => {
-      const b = button('', () => { if (tool === 'highlighter') colours.highlighter = hex; else colours.pen = hex; swatchState(); }, { class: 'swatch', 'aria-label': `Colour ${hex}`, 'aria-pressed': 'false' });
+    const swatches = SANDBOX_COLOURS.map(([hex, name]) => {
+      const b = button('', () => { if (tool === 'highlighter') colours.highlighter = hex; else colours.pen = hex; swatchState(); }, { class: 'swatch', 'aria-label': name, title: `${name}, ${hex}`, 'aria-pressed': 'false' });
       b.style.setProperty('--swatch', hex);
       return [hex, b];
     });
@@ -1752,21 +1797,42 @@
     const fades = [[0, 'Off'], [3, '3 s'], [8, '8 s'], [20, '20 s']].map(([s, label], i) => el('label', { class: 'radio' },
       el('input', Object.assign({ type: 'radio', name: fadeName, value: s }, i === 0 ? { checked: '' } : {})), ` ${label}`));
     const fadeSet = el('fieldset', { class: 'control-group' }, el('legend', { class: 'control-label', text: 'Fading ink' }), ...fades);
-    fadeSet.addEventListener('change', () => { fade = Number(root.querySelector(`input[name="${fadeName}"]:checked`).value); });
+    fadeSet.addEventListener('change', () => { fade = Number(root.querySelector(`input[name="${fadeName}"]:checked`).value); say(SANDBOX_LINES.fade(fade)); });
 
-    const undoBtn = button('Undo', () => { const c = done.pop(); if (!c) return; c.undo(); undone.push(c); render(); describe(); });
-    const redoBtn = button('Redo', () => { const c = undone.pop(); if (!c) return; c.redo(); done.push(c); render(); describe(); });
-    const clearBtn = button('Clear', () => { if (!items.length) return; const gone = [...items]; exec({ items: gone, redo: () => { items.length = 0; }, undo: () => { items.push(...gone); } }); });
+    /* Each control first paints, which expires a mark whose time has passed, so that it acts on what the screen
+       shows even when the browser has skipped frames. */
+    const undoBtn = button('Undo', () => {
+      render();
+      const c = done.pop();
+      if (!c) { say(SANDBOX_LINES.none('undo')); return; }
+      c.undo(); undone.push(c); render(); describe(); say(SANDBOX_LINES.undo(items.length));
+    });
+    const redoBtn = button('Redo', () => {
+      render();
+      const c = undone.pop();
+      if (!c) { say(SANDBOX_LINES.none('redo')); return; }
+      c.redo(); done.push(c); render(); describe(); say(SANDBOX_LINES.redo(items.length));
+    });
+    const clearBtn = button('Clear', () => {
+      render();
+      if (!items.length) { say(SANDBOX_LINES.none('clear')); return; }
+      const gone = [...items];
+      exec({ items: gone, redo: () => { items.length = 0; }, undo: () => { items.push(...gone); } });
+      say(SANDBOX_LINES.clear);
+    });
+    /* The picture as it stands, at twice the stand-in's size, with the "Demonstration" label painted in, and named so
+       that it is not taken for a screenshot of the build. It is the visitor's own download: nothing is sent. */
     const saveBtn = button('Save as PNG', () => {
       const out = document.createElement('canvas');
+      if (!out.toBlob) { say(SANDBOX_LINES.noPng); return; }
       out.width = W * 2; out.height = H * 2;
       const c = out.getContext('2d');
       c.setTransform(2, 0, 0, 2, 0, 0);
-      paintScreen(c, true);
+      paintStandIn(c, true);
       const now = performance.now();
       for (const item of items) { const alpha = alphaOf(item, now); if (alpha !== null) paintItem(c, item, alpha); }
       out.toBlob(blob => {
-        if (!blob) { state.textContent = 'The browser could not make the PNG.'; return; }
+        if (!blob) { say(SANDBOX_LINES.noPng); return; }
         const name = `Showtrace demonstration ${stamp(new Date())}.png`;
         const url = URL.createObjectURL(blob);
         const a = el('a', { href: url, download: name });
@@ -1774,7 +1840,7 @@
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 2000);
-        state.textContent = `Saved as ${name}, as a download from your browser. Nothing was sent or stored.`;
+        say(SANDBOX_LINES.saved(name));
       }, 'image/png');
     });
 
@@ -1783,11 +1849,28 @@
       group('Colour', ...swatches.map(([, b]) => b)),
       fadeSet,
       group('Marks', undoBtn, redoBtn, clearBtn),
-      group('Keep', saveBtn));
-    root.append(tools, stageBox, state);
+      saveBtn);
+    root.append(stageBox, state, tools);
+    describe();
 
-    new ResizeObserver(resize).observe(stageBox);
+    if ('ResizeObserver' in window) new ResizeObserver(resize).observe(stageBox);
+    else window.addEventListener('resize', resize);
     darkScheme.addEventListener('change', render);
+    /* Paper takes the light stand-in; the screen gets its own back after. The tokens are set on the root only while
+       the canvas paints, before the browser paints anything else. */
+    window.addEventListener('beforeprint', () => {
+      const light = darkScheme.matches && lightTokens();
+      if (!light) return;
+      const names = Array.from(light).filter(n => n.startsWith('--screen-') || n.startsWith('--demo-label-'));
+      const rootStyle = document.documentElement.style;
+      for (const n of names) rootStyle.setProperty(n, light.getPropertyValue(n));
+      render();
+      for (const n of names) rootStyle.removeProperty(n);
+      /* The root had no style attribute; Chromium writes one back from the emptied inline style when it is next
+         read, so it is read once before it goes. */
+      if (!rootStyle.length) { document.documentElement.getAttribute('style'); document.documentElement.removeAttribute('style'); }
+    });
+    window.addEventListener('afterprint', render);
     resize();
   }
 
