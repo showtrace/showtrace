@@ -47,6 +47,8 @@ Serve `site/` from any static file server and open it in a browser, or open `sit
 
 Check by hand what a script cannot: both colour schemes, a 320 px wide window, the page with the keyboard only, reduced motion, the stroke that draws itself on the logo and the hero mark, each demonstration once and again on its control, the sandbox and its PNG, every link, a print preview, the 404 page at a missing address, and a browser console without errors.
 
+A headless Chromium screenshot taken with `--virtual-time-budget` shows no demonstration playing: the page preloads its font, and Chromium then makes no frame until the virtual time runs out (seen in Edge 154). A screenshot without that switch, in real time, shows them, and with `--force-prefers-reduced-motion` each one's end state.
+
 ## Check
 
 ```powershell
