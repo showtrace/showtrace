@@ -1,0 +1,50 @@
+# Deploys the website in site/ to GitHub Pages: on every push to main, and by hand from the Actions tab.
+# The site checks (tools/check-site.ps1) run first; a failure stops the deployment.
+# Pages serves the folder through this workflow because a branch deployment can only serve the root or docs/.
+# The shape is GitHub's starter workflow for static content (actions/starter-workflows, pages/static.yml);
+# the action versions are the latest releases on 2026-10-06.
+# Before the first run an owner sets Settings > Pages > Source to "GitHub Actions".
+name: Deploy the site to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time. A run in progress finishes; only the runs queued behind it are skipped.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Site checks
+        shell: pwsh
+        run: ./tools/check-site.ps1
+
+  deploy:
+    needs: check
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@v5
