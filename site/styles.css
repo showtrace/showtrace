@@ -4,7 +4,10 @@
    The demonstrations are drawn by demonstrations.js on a neutral stand-in screen; their colours are below.
    No fonts, scripts or images from other domains. Works without JavaScript and at 320 px. */
 
-/* Atkinson Hyperlegible Next, variable weight 200 to 800, upright and italic (Braille Institute, SIL Open Font License 1.1). */
+/* Atkinson Hyperlegible Next, variable weight 200 to 800, upright and italic (Braille Institute, SIL Open Font License 1.1).
+   font-display: swap, on purpose: the text reads at once in the fallback below, and the face takes over when it
+   arrives. The page preloads the upright file, so it is mostly there before the first paint; when it is not, the
+   fallback keeps every line where it is, so the swap moves nothing. */
 @font-face {
   font-family: "Atkinson Hyperlegible Next";
   font-style: normal;
@@ -19,6 +22,33 @@
   font-weight: 200 800;
   font-display: swap;
   src: url("fonts/AtkinsonHyperlegibleNext-Italic-wght.woff2") format("woff2");
+}
+
+/* The fallback while the face loads: Arial, or a font with Arial's widths (Liberation Sans, Arimo), scaled to the
+   widths of Atkinson Hyperlegible Next and given its vertical metrics, so that a line breaks at the same word in both.
+   Measured on 2026-10-06: the face is 0.989 of Arial's width on the page's own text at weight 400, and 0.986 of Arial
+   Bold's on the headings at 700; its ascent and descent are 984 and 316 per 1000 (hhea and typo alike). Each override
+   is the face's metric divided by the size-adjust. A browser that does not know a descriptor ignores it. */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next fallback";
+  font-style: normal;
+  font-weight: 100 549;
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("LiberationSans"), local("Arimo");
+  size-adjust: 98.9%;
+  ascent-override: 99.5%;
+  descent-override: 31.95%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Next fallback";
+  font-style: normal;
+  font-weight: 550 900;
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"), local("LiberationSans-Bold"), local("Arimo Bold");
+  size-adjust: 98.6%;
+  ascent-override: 99.8%;
+  descent-override: 32.05%;
+  line-gap-override: 0%;
 }
 
 :root {
@@ -53,6 +83,9 @@
   --rule-strong: rgba(88, 96, 105, 0.45);
   --focus: var(--trace-teal);
   --tint: rgba(14, 129, 146, 0.1);
+  /* A filled link: white on the deep teal, 6.18 to 1 (brand.md, 6.2). */
+  --action-bg: var(--trace-teal-deep);
+  --action-text: var(--paper);
 
   /* The stand-in screen: greys without a hue, so that it never reads as a screenshot. */
   --screen-bg: #ECECEC;
@@ -95,10 +128,14 @@
   --radius-m: 6px;
   --radius-l: 12px;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --measure: 38rem;
+  /* About 70 characters a line at the body size. */
+  --measure: 34rem;
+  /* The space at the sides of the page: 1rem at 320 px, so that a card keeps its width there. */
+  --gutter: clamp(1rem, 0.4rem + 3vw, 1.25rem);
 }
 
-@media (prefers-color-scheme: dark) {
+/* Dark on a screen only: paper takes the light tokens, whatever the visitor's scheme. */
+@media screen and (prefers-color-scheme: dark) {
   :root {
     --bg: var(--slate);
     --surface: rgba(238, 238, 238, 0.06);
@@ -114,6 +151,9 @@
     --rule-strong: rgba(170, 170, 170, 0.5);
     --focus: var(--trace-teal-light);
     --tint: rgba(77, 208, 225, 0.14);
+    /* Slate on the light teal, 8.76 to 1. */
+    --action-bg: var(--trace-teal-light);
+    --action-text: var(--slate);
 
     --screen-bg: #2E2E2E;
     --screen-bar: #383838;
@@ -141,10 +181,11 @@
 }
 
 html {
-  font-family: "Atkinson Hyperlegible Next", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible Next fallback", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 100%;
   line-height: var(--leading);
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -162,6 +203,16 @@ h3 {
   margin: 0 0 0.5em;
   letter-spacing: -0.01em;
   overflow-wrap: break-word;
+  text-wrap: balance;
+}
+
+/* No word alone on a last line, where the browser knows how; elsewhere the text wraps as it always did. */
+p,
+li,
+dt,
+dd,
+figcaption {
+  text-wrap: pretty;
 }
 
 h1 {
@@ -210,7 +261,7 @@ kbd {
 }
 
 .wrap {
-  width: min(100% - 2.5rem, 68rem);
+  width: min(100% - 2 * var(--gutter), 68rem);
   margin-inline: auto;
 }
 
@@ -232,8 +283,9 @@ kbd {
 
 /* Header and logo */
 
+/* At 320 px the logo and two lines of links: about 135 px, a fifth of a phone's height. */
 .site-header {
-  padding: var(--space-4) 0;
+  padding: clamp(0.75rem, 0.5rem + 1vw, 1rem) 0;
   border-bottom: 1px solid var(--rule);
 }
 
@@ -242,7 +294,7 @@ kbd {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3) var(--space-6);
+  gap: var(--space-1) var(--space-6);
 }
 
 .logo {
@@ -252,7 +304,7 @@ kbd {
   color: var(--logo);
   text-decoration: none;
   font-weight: 600;
-  font-size: 1.5rem;
+  font-size: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
   letter-spacing: -0.01em;
 }
 
@@ -304,10 +356,19 @@ kbd {
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1) var(--space-5);
+  gap: 0 var(--space-4);
 }
 
+@media (min-width: 48rem) {
+  .site-nav ul {
+    column-gap: var(--space-5);
+  }
+}
+
+/* Each link is at least 24 px tall, a target of its own (WCAG 2.5.8). */
 .site-nav a {
+  display: inline-block;
+  padding: var(--space-1) 0;
   font-weight: 500;
   text-decoration: none;
   font-size: var(--text-s);
@@ -332,17 +393,15 @@ kbd {
 
 @media (min-width: 54rem) {
   .hero-grid {
-    grid-template-columns: minmax(0, 1.15fr) minmax(16rem, 0.85fr);
+    grid-template-columns: minmax(0, 1.4fr) minmax(14rem, 0.6fr);
   }
 }
 
-.hero h1 {
-  max-width: 14ch;
-}
-
+/* Wide enough for the lead on one line next to the hero mark; two even lines when it wraps. */
 .lead {
   font-size: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
-  max-width: var(--measure);
+  max-width: 40rem;
+  text-wrap: balance;
 }
 
 .sentence {
@@ -355,10 +414,79 @@ kbd {
   margin-bottom: 0;
 }
 
+/* The status words of the hero: what works today and what is planned, in the words the cards use. */
+.status-key {
+  list-style: none;
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-s);
+}
+
+.status-key li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.status-key .status {
+  flex: none;
+  min-width: 4.75rem;
+  text-align: center;
+}
+
+/* Two links that look like buttons: they move down the page, so they stay links. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-6) 0 0;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.45rem 1.1rem;
+  border: 2px solid var(--accent-text);
+  border-radius: var(--radius-m);
+  color: var(--accent-text);
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.action:hover {
+  color: var(--accent-text);
+  background: var(--tint);
+}
+
+.action-primary,
+.action-primary:hover {
+  color: var(--action-text);
+  background: var(--action-bg);
+  border-color: var(--action-bg);
+}
+
+.action-primary:hover {
+  text-decoration: underline;
+}
+
+/* The hero mark is the signature at its largest. Below two columns it would sit under the text as a picture of
+   nothing, so it leaves; the logo still draws itself at load. */
 .hero-mark {
+  display: none;
   color: var(--logo);
   max-width: 26rem;
   margin-inline: auto;
+}
+
+@media (min-width: 54rem) {
+  .hero-mark {
+    display: block;
+    width: 100%;
+  }
 }
 
 .hero-mark svg {
@@ -366,6 +494,15 @@ kbd {
   width: 100%;
   height: auto;
   overflow: visible;
+}
+
+/* The 404 page: what happened and the way back. */
+.not-found {
+  padding: clamp(2.5rem, 7vw, 5.5rem) 0 clamp(3rem, 9vw, 7rem);
+}
+
+.not-found p {
+  max-width: var(--measure);
 }
 
 /* Sections */
@@ -384,18 +521,69 @@ kbd {
   color: var(--text-soft);
 }
 
+/* A section heading with the status word of what the section shows. */
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+/* The problem: the scene, and next to it, from 60rem, the words of the people watching. */
+@media (min-width: 60rem) {
+  .problem {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: var(--space-8);
+    align-items: start;
+  }
+
+  .problem > h2 {
+    grid-column: 1 / -1;
+  }
+}
+
 .quotes {
+  list-style: none;
   max-width: var(--measure);
-  padding-left: 1.25rem;
+  margin: 0 0 var(--space-4);
+  padding: 0;
 }
 
 .quotes li {
-  margin-bottom: 0.35em;
+  font-size: var(--text-l);
+  line-height: 1.35;
+  margin: 0 0 var(--space-3);
+  padding: 0.1em 0 0.1em var(--space-4);
+  border-left: 3px solid var(--rule-strong);
+  text-wrap: balance;
 }
 
+/* The tools the marks show in, by name; no logos, which are not ours to show. */
+.apps {
+  list-style: none;
+  margin: 0 0 1em;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  font-size: var(--text-l);
+  font-weight: 600;
+}
+
+/* The headline and the subline of brand.md, section 3, each on its own line. */
 .tagline {
   font-size: clamp(1.25rem, 1.05rem + 1vw, 1.75rem);
   line-height: 1.3;
+}
+
+.tagline strong {
+  display: block;
 }
 
 /* Status words: today, planned, phase 2. The word carries the meaning; the shape of the border repeats it. */
@@ -436,12 +624,25 @@ kbd {
   margin-top: var(--space-6);
 }
 
+/* 1rem of padding at 320 px, 1.5rem from about 720 px: the demonstration keeps the width it needs. */
 .feature {
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: var(--radius-l);
-  padding: var(--space-5);
+  padding: clamp(1rem, 0.6rem + 2vw, 1.5rem);
   min-width: 0;
+}
+
+/* Cards side by side share their rows, so that their headings, their text and their demonstrations start on one
+   line. A browser without subgrid lays each card out on its own, as before. */
+@supports (grid-template-rows: subgrid) {
+  .features > .feature:not(.feature-lead) {
+    display: grid;
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+    row-gap: 0;
+    align-content: start;
+  }
 }
 
 .feature-head {
@@ -464,11 +665,14 @@ kbd {
   grid-column: 1 / -1;
 }
 
+/* The first card is wide: its text on the left, its demonstration over three rows on the right. The rows have no
+   gap, so the heading sits as close to its text as in the other cards, and the last row takes what is left. */
 @media (min-width: 56rem) {
   .feature-lead {
     display: grid;
     grid-template-columns: minmax(14rem, 0.8fr) minmax(0, 1.6fr);
-    gap: var(--space-5) var(--space-6);
+    grid-template-rows: auto auto 1fr;
+    gap: 0 var(--space-6);
     align-items: start;
   }
 
@@ -947,24 +1151,42 @@ kbd {
   color: var(--text-soft);
 }
 
-/* Phase 2 intents */
+/* Phase 2 intents: Learn and Oversee side by side from 40rem, each under a rule. */
+
+.section .intents {
+  display: grid;
+  gap: var(--space-4) var(--space-6);
+  max-width: 48rem;
+  margin: var(--space-5) 0;
+}
+
+@media (min-width: 40rem) {
+  .section .intents {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.intents > div {
+  border-top: 2px solid var(--rule-strong);
+  padding-top: var(--space-3);
+}
 
 .intents dt {
-  font-weight: 600;
-  margin-top: 0.75em;
+  font-weight: 700;
 }
 
 .intents dd {
-  margin: 0.15em 0 0;
+  margin: var(--space-1) 0 0;
 }
 
 /* Download */
 
+/* 1rem of padding at 320 px, as the cards have, so the text keeps its width there. */
 .download-box {
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: var(--radius-l);
-  padding: var(--space-5) var(--space-6);
+  padding: clamp(1rem, 0.6rem + 2vw, 1.5rem) clamp(1rem, 0.2rem + 4vw, 2rem);
   max-width: var(--measure);
 }
 
@@ -991,6 +1213,10 @@ kbd {
   max-width: var(--measure);
 }
 
+.site-footer .to-top {
+  margin: var(--space-4) 0 0;
+}
+
 /* Reduced motion: everything appears at once (brand.md, 6.6). The script shows only end states. */
 
 @media (prefers-reduced-motion: reduce) {
@@ -1005,5 +1231,64 @@ kbd {
   .is-drawn .step-ring {
     animation: none;
     opacity: 1;
+  }
+}
+
+/* Print: the text and the end state of each demonstration, light on white paper, without what works only on a
+   screen: the skip link, the section links, the hero's links and mark, the controls, the way back to the top. */
+@page {
+  margin: 18mm 16mm;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  .skip,
+  .site-nav,
+  .actions,
+  .hero-mark,
+  .demo-controls,
+  .sandbox-tools,
+  .to-top {
+    display: none;
+  }
+
+  .mark-stroke {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .mark-dot {
+    animation: none;
+    opacity: 1;
+  }
+
+  .hero,
+  .section {
+    padding: var(--space-5) 0;
+  }
+
+  h2,
+  h3,
+  .section-head,
+  .feature-head {
+    break-after: avoid;
+  }
+
+  .feature,
+  .trace,
+  .quotes li,
+  .intents > div,
+  .download-box,
+  .demo {
+    break-inside: avoid;
+  }
+
+  /* The label that says a picture is a demonstration keeps its dark plate, which a printer leaves out by default. */
+  .demo-label {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

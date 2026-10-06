@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <!-- The source of site/og-image.png, the picture a chat or a social site shows next to a shared link to the page.
+       It is the logo of the header at four times its size, in the brand teal on paper, with the hero line: a logo
+       and words, no marks, so it never reads as a screenshot (brand.md, section 8). The README says how to render it.
+       The lockup keeps the header's proportions: the mark 2.75 by 2 em of the wordmark's size, a third of an em
+       between them, the dot on the wordmark's baseline. 467.5 is the width of the wordmark at 100 px, weight 600,
+       letter-spacing -0.01 em, measured in the browser on 2026-10-06; the lockup is 776 wide and centred.
+       A session's drawing, like the logo it shows: it changes when the logo or the line changes. -->
+  <style>
+    @font-face {
+      font-family: "Atkinson Hyperlegible Next";
+      font-weight: 200 800;
+      src: url("../site/fonts/AtkinsonHyperlegibleNext-wght.woff2") format("woff2");
+    }
+    text { font-family: "Atkinson Hyperlegible Next", sans-serif; }
+    .word { font-weight: 600; font-size: 100px; letter-spacing: -1px; fill: #0E8192; }
+    .line { font-weight: 700; font-size: 60px; fill: #1A1F24; }
+  </style>
+  <rect width="1200" height="630" fill="#FFFFFF"/>
+  <g transform="translate(212 140) scale(6.25)" fill="none" stroke="#0E8192" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 26 C5 15, 13 4, 21 4.5 C29 5, 32 15, 25 18.5 C18 22, 13 14, 19.5 11.5 C26 9, 34 17, 40 29"/>
+    <circle cx="40" cy="29.2" r="2.8" fill="#0E8192" stroke="none"/>
+  </g>
+  <text class="word" x="520" y="340">Showtrace</text>
+  <text class="line" x="600" y="460" text-anchor="middle">Mark any screen, live.</text>
+</svg>
