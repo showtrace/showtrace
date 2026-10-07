@@ -1463,7 +1463,7 @@
         return b;
       });
       h.range = el('input', { type: 'range', min: 1, max: 40, value: PEN_WIDTH, 'aria-label': 'Width, 1 to 40' });
-      h.out = el('output', { text: String(PEN_WIDTH) });
+      h.out = el('output', { text: String(PEN_WIDTH), 'aria-live': 'off' });
       /* The value is read before the play is stopped: the end state of a play sets the slider too. */
       h.range.addEventListener('input', () => setPen(h, { width: Number(h.range.value) }));
       h.controls.append(group('Palette', ...h.swatches), group('Width', h.range, h.out));
