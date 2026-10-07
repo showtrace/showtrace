@@ -1628,10 +1628,10 @@
       await run.pause(1000);
       await click(run, h, 'menu', { theme: 'light' });
       await step('Light theme, from its menu.', 1000);
-      h.tb.set({ theme: 'dark' });
-      await step('Dark theme.', 1000);
-      h.tb.set({ theme: 'auto' });
-      await step(AUTO_LINE, 600);
+      await click(run, h, 'menu', { theme: 'dark' });
+      await step('Dark theme, from its menu.', 1000);
+      await click(run, h, 'menu', { theme: 'auto' });
+      await step('Auto theme, from its menu. It follows the Windows app theme; here it follows your browser.', 600);
       h.end('Horizontal or vertical, collapsed or hidden; light, dark or auto. The buttons below change it. The stand-in toolbar is larger than a real one, with icons drawn for this page.', toolbarAlt(h));
     },
   };
