@@ -1920,11 +1920,12 @@
   });
 
   /* A printed page shows end states: a card that has not come into view, or whose play still moves, is brought to
-     its end state before the page prints, quietly. An instant run ends before the browser paints. */
+     its end state before the page prints, quietly. An instant run ends before the browser paints. The card stays
+     observed, so that a play started after the print still stops out of view; it counts as played, so the observer
+     does not start it by itself. */
   window.addEventListener('beforeprint', () => {
     for (const h of mounted) {
       if (h.frame.played && !moving(h)) continue;
-      if (observer) observer.unobserve(h.box);
       start(h, { instant: true, quiet: true });
     }
   });
