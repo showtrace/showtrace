@@ -1878,7 +1878,8 @@
   function mount(card) {
     const demo = DEMOS[card.dataset.demo];
     const slot = card.querySelector('.feature-demo');
-    if (!demo || !slot) return;
+    if (!slot) return;
+    if (!demo) { slot.hidden = true; console.error(`Showtrace: no demonstration is named "${card.dataset.demo}"; its card shows its text only.`); return; }
     let h = null;
     try {
       h = demo.build(card, slot);
