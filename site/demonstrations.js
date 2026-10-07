@@ -1399,7 +1399,7 @@
       await drawShape(run, h, 'ellipse', P(488, 306), P(624, 366), { ms: 600 });
       await run.pause(500);
       /* Hold-to-interact: while Ctrl and Alt are down in draw mode, clicks pass through; draw mode stays (spec 6.3). */
-      h.say('Hold ', { key: 'Ctrl' }, ' + ', { key: 'Alt' }, ' in draw mode: for a moment, clicks pass through the marks. Draw mode stays on.');
+      h.say('Hold ', { key: 'Ctrl' }, '+', { key: 'Alt' }, ' in draw mode: for a moment, clicks pass through the marks. Draw mode stays on.');
       await glide(run, h, P(556, 336), 600);
       await press(run, h);
       await run.pause(500);
