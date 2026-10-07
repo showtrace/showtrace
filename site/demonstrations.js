@@ -396,9 +396,15 @@
     if (!h.run) speak(h, text);
   }
 
-  /* The live region is polite: a screen reader says it when the visitor pauses, without moving focus (WCAG 4.1.3). */
+  /* The live region is polite: a screen reader says it when the visitor pauses, without moving focus (WCAG 4.1.3).
+     It keeps a message long enough to be spoken, then empties, so that browse mode does not read the end line a
+     second time after the state line. */
+  const LIVE_CLEAR_MS = 10000;
+
   function speak(h, text) {
+    clearTimeout(h.frame.hush);
     h.frame.live.textContent = text;
+    if (text) h.frame.hush = setTimeout(() => { h.frame.live.textContent = ''; }, LIVE_CLEAR_MS);
   }
 
   /* Things a play adds outside the document: the laser, the halo, the lens, popups, the dim. Reset removes them. */
@@ -846,9 +852,9 @@
      demonstration again calls start(h).
 
      The live region announces that a play with motion starts ("<card title>: the demonstration is playing.") and how
-     it ends ("... has ended." or, after Stop, "... has stopped.", then the end line). The lines in between are shown
-     and not announced. What h.say or h.end says outside a play, after a control, is announced as it is. A stop the
-     visitor did not ask for is silent.
+     it ends ("... has ended." or, after Stop, "... has stopped.", then the end line), then empties after 10 s. The
+     lines in between are shown and not announced. What h.say or h.end says outside a play, after a control, is
+     announced as it is. A stop the visitor did not ask for is silent.
 
      Space. Before the script runs, styles.css reserves the stage, the state line (3 lines for a stage of 30 rem and
      wider, 4 below that, 6 below 20.5 rem) and one row of controls; a demonstration with more controls, and the
