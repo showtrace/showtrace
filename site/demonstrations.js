@@ -862,7 +862,8 @@
      measure again after changing them.
 
      Errors. A build, reset or play that throws takes its demonstration out: its card keeps its text, the other
-     demonstrations go on, and the error is logged once. */
+     demonstrations go on, and the error is logged once. A control's handler is wrapped in guard(h, fn), so that an
+     error there does the same. */
 
   /* A click on a button of the stand-in toolbar: the pointer goes to it, and the toolbar changes as the click changes
      it, as a tool, a popup or a setting is chosen in the build. The same approach in every demonstration. While the
@@ -889,12 +890,12 @@
       h.tb = toolbar(h, { draw: true });
       addPointer(h, P(400, 240));
       /* A control acts on the end state: a play in progress jumps there first. */
-      const act = (fn, nothing) => async () => {
+      const act = (fn, nothing) => guard(h, async () => {
         await stop(h);
         const text = fn();
         if (!text) { h.say(nothing); return; }
         h.end(text, marksAlt(h));
-      };
+      });
       const count = () => `${h.doc.count} ${h.doc.count === 1 ? 'mark' : 'marks'} on the screen.`;
       h.controls.append(
         button('Undo', act(() => h.doc.undo() && `Undo. ${count()}`, 'Nothing to undo.')),
@@ -1031,7 +1032,7 @@
       const radios = [3, 8, 20].map((s, i) => el('label', { class: 'radio' },
         el('input', Object.assign({ type: 'radio', name, value: s }, i === 0 ? { checked: '' } : {})), ` ${s} s`));
       const set = el('fieldset', { class: 'control-group' }, el('legend', { class: 'control-label', text: 'Fades after' }), ...radios);
-      set.addEventListener('change', () => start(h));
+      set.addEventListener('change', guard(h, () => start(h)));
       h.controls.append(set);
       return h;
     },
@@ -1175,7 +1176,7 @@
       };
       h.controls.append(group('Board',
         ...[['', 'None'], ...Object.entries(BOARDS).map(([k, b]) => [k, b.label])].map(([kind, label]) => {
-          const b = button(label, () => choose(kind || null), { 'aria-pressed': 'false' });
+          const b = button(label, guard(h, () => choose(kind || null)), { 'aria-pressed': 'false' });
           h.buttons[kind || 'none'] = b;
           return b;
         })));
@@ -1265,12 +1266,12 @@
       addPointer(h, P(400, 240));
       h.thumb = el('div', { class: 'demo-thumb', hidden: '' });
       h.controls.after(h.thumb);
-      h.controls.append(button('Full screen', async () => {
+      h.controls.append(button('Full screen', guard(h, async () => {
         await stop(h);
         const name = shotName();
         showShot(h, { x: 0, y: 0, w: 640, h: 400 }, name);
         h.say(`Full screen: the monitor under the pointer, with the marks, without the toolbar and the pointer. Copied and saved as ${name}.`);
-      }));
+      })));
       return h;
     },
     reset(h) {
@@ -1458,14 +1459,14 @@
         svg('linearGradient', { id: 'picker-black', x2: 0, y2: 1 }, at(0, '#000000', 0), at(1, '#000000')),
         svg('linearGradient', { id: 'picker-hue', x2: 0, y2: 1 }, ...['#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF', '#FF0000'].map((c, i) => at(i / 6, c))));
       h.swatches = PALETTE.map(hex => {
-        const b = button('', () => setPen(h, { colour: hex }), { class: 'swatch', 'aria-label': `Colour ${hex}`, 'aria-pressed': 'false' });
+        const b = button('', guard(h, () => setPen(h, { colour: hex })), { class: 'swatch', 'aria-label': `Colour ${hex}`, 'aria-pressed': 'false' });
         b.style.setProperty('--swatch', hex);
         return b;
       });
       h.range = el('input', { type: 'range', min: 1, max: 40, value: PEN_WIDTH, 'aria-label': 'Width, 1 to 40' });
       h.out = el('output', { text: String(PEN_WIDTH), 'aria-live': 'off' });
       /* The value is read before the play is stopped: the end state of a play sets the slider too. */
-      h.range.addEventListener('input', () => setPen(h, { width: Number(h.range.value) }));
+      h.range.addEventListener('input', guard(h, () => setPen(h, { width: Number(h.range.value) })));
       h.controls.append(group('Palette', ...h.swatches), group('Width', h.range, h.out));
       return h;
     },
@@ -1594,7 +1595,7 @@
       h.buttons = {};
       const place = async (changes, text) => { await stop(h); h.tb.set(changes); shown(h); h.end(text, toolbarAlt(h)); };
       const toggles = (label, items) => group(label, ...items.map(([key, name, changes, text]) => {
-        h.buttons[key] = button(name, () => place(changes, text), { 'aria-pressed': 'false' });
+        h.buttons[key] = button(name, guard(h, () => place(changes, text)), { 'aria-pressed': 'false' });
         return h.buttons[key];
       }));
       h.controls.append(
@@ -1823,6 +1824,10 @@
     if (!h.run) return Promise.resolve();
     return start(h, Object.assign({ instant: true, quiet: !how.stopped }, how));
   }
+
+  /* A control's handler: an error takes the demonstration out, as an error in a play does. The handler runs in the
+     microtask after the event, before anything else can change what it reads. */
+  const guard = (h, fn) => (...args) => Promise.resolve().then(() => fn(...args)).catch(error => fail(h.card, error, h));
 
   /* Cancels a play where it is, before a new one starts. */
   function halt(h) {
