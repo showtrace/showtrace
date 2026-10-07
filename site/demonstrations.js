@@ -1879,6 +1879,9 @@
       h = demo.build(card, slot);
       h.frame.demo = demo;
       h.frame.name = card.querySelector('h3')?.textContent.trim() || 'Demonstration';
+      /* The figure carries the card's name, so that its controls, named Play or Undo as in every card, are found in
+         their card. */
+      h.box.parentElement.setAttribute('aria-label', `${h.frame.name}, demonstration`);
       h.controls.prepend(playControl(h));
     } catch (error) {
       fail(card, error, h);
