@@ -936,7 +936,7 @@
       h.say('Redo brings it back.');
       h.doc.redo();
       await run.pause(600);
-      h.end('Seven kinds of marks on the live screen, on top of any application. Undo, redo and clear below work on them.', marksAlt(h));
+      h.end('Seven kinds of marks on the live screen, on top of any application.', marksAlt(h));
     },
   };
 
@@ -1011,7 +1011,7 @@
       h.lensLocked = true;
       await glide(run, h, P(560, 120), 900);
       await run.pause(300);
-      h.end('The laser left no ink. The halo is on, and the lens is locked at 4x until a click lets it go. Not to scale: the lens is 320 px in the build and 200 here, and the pointer is drawn a quarter larger.',
+      h.end('The laser left no ink. The halo is on, and the lens is locked at 4x until a click lets it go.',
         'A stand-in screen. The halo is on around the pointer, and a magnifier lens is locked at 4x over the lines of text. The laser left no ink.');
     },
   };
@@ -1217,7 +1217,7 @@
       h.say('None: the board closes, and the screen marks are back. The board keeps its marks for the next board.');
       await pickBoard(run, h, null);
       await run.pause(400);
-      h.end('A whiteboard, a blackboard, a light grid and a dark grid, each over the live screen of one monitor. The screen marks come back when the board closes; the buttons below open the boards.',
+      h.end('A whiteboard, a blackboard, a light grid and a dark grid, each over the live screen of one monitor. The screen marks come back when the board closes.',
         'A stand-in screen with a pen stroke and an arrow, back after the boards closed. The demonstration opened a whiteboard, a blackboard, a light grid and a dark grid over it, with marks of their own.');
     },
   };
@@ -1555,7 +1555,7 @@
       tagMark(await drawStroke(run, h, curve(P(200, 324), P(260, 294), P(340, 354), P(420, 324), 30, 1), { colour: h.colour, width: h.width, ms: 700 }), `a ${h.colour} stroke of ${h.width} px`);
       showPen(h);
       await run.pause(200);
-      h.end(`Three strokes: the palette blue at 4 and at ${h.width} px, then a custom colour. The palette and the slider below set the pen for a sample stroke.`, marksAlt(h));
+      h.end(`Three strokes: the palette blue at 4 and at ${h.width} px, then a custom colour.`, marksAlt(h));
     },
   };
 
@@ -1639,7 +1639,7 @@
       await step('Dark theme, from its menu.', 1000);
       await click(run, h, 'menu', { theme: 'auto' });
       await step('Auto theme, from its menu. It follows the Windows app theme; here it follows your browser.', 600);
-      h.end('Horizontal or vertical, collapsed or hidden; light, dark or auto. The buttons below change it. The stand-in toolbar is larger than a real one, with icons drawn for this page.', toolbarAlt(h));
+      h.end('Horizontal or vertical, collapsed or hidden; light, dark or auto.', toolbarAlt(h));
     },
   };
 
@@ -1734,7 +1734,7 @@
         await run.pause(300);
         await add(first, phase2
           ? 'Step 1: a filled dot and the teacher\'s role. No reason was given, so it would say "not given".'
-          : 'Planned: the trace will keep the mark as step 1, with what was done, who did it and why.');
+          : 'The trace will keep the mark as step 1, with what was done, who did it and why.');
         await run.pause(500);
 
         h.say(ai
@@ -1752,15 +1752,15 @@
         await run.pause(300);
         await add(third, phase2
           ? 'Step 3, with the teacher\'s reason.'
-          : 'Step 3. No reason was given, so the step will say "not given". A reason is never made up.');
+          : 'Step 3. No reason was given, so the step will say "not given".');
         await run.pause(400);
 
         const screenAlt = phase2
           ? 'The stand-in screen with three marks: a red ellipse round the File menu, a dashed grey arrow at Export in the open menu with an open ring at its tip, and a red rectangle round a button.'
           : 'The stand-in screen with three red marks: an ellipse round the File menu, an arrow at Export in the open menu, and a rectangle round a button.';
         h.end(phase2
-          ? 'Two authors in one trace: solid marks and a filled dot for the teacher, dashed grey marks and an open ring for the AI. Phase 2: no agent is connected; the AI is named as an example.'
-          : 'Three marks, three steps in order, each with what was done, who did it and why. Planned: the build does not keep steps yet; the trace here is a mock.',
+          ? 'Two authors in one trace: solid marks and a filled dot for the teacher, dashed grey marks and an open ring for the AI.'
+          : 'Three marks, three steps in order, each with what was done, who did it and why.',
         `${screenAlt} The trace next to it lists them as three steps.`);
       },
     };
@@ -1949,7 +1949,7 @@
   const marksOf = n => (n === 0 ? 'No marks' : n === 1 ? '1 mark' : `${n} marks`);
   const SANDBOX_LINES = {
     start: 'Draw with a mouse, a pen or a finger. The marks stay in this page.',
-    pen: 'Pen: a stroke at the build\'s 4 px, scaled with the stand-in screen, smoothed when you let go.',
+    pen: 'Pen: smoothed when you let go.',
     highlighter: 'Highlighter: three times the pen\'s width, translucent, with flat ends.',
     arrow: 'Arrow: drag from its tail to its head. Hold Shift for 45 degree steps.',
     fade: s => (s ? `Fading ink, ${s} s: the marks you draw next fade after ${s} s. Marks already drawn keep their own time.` : 'Fading ink off: the marks you draw next stay. Marks already drawn keep their own time.'),
@@ -1957,7 +1957,7 @@
     redo: n => `Redone. ${marksOf(n)} on the screen.`,
     clear: 'Cleared. Undo brings the marks back in one step.',
     none: what => `Nothing to ${what}.`,
-    saved: name => `Your browser saves the picture as ${name}, labelled as a demonstration. Nothing was sent or stored.`,
+    saved: name => `Your browser saves the picture as ${name}.`,
     noPng: 'This browser cannot make a PNG of the picture.',
   };
 

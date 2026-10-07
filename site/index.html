@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Showtrace: mark any screen, live</title>
-<meta name="description" content="Mark any screen, live: draw, point and highlight on top of any application, in any call. The live marks work today, as a beta; the trace is planned.">
+<meta name="description" content="Mark any screen, live: draw, point and highlight on top of any application, in any call.">
 <link rel="canonical" href="https://showtrace.github.io/showtrace/">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
@@ -17,7 +17,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Showtrace">
 <meta property="og:title" content="Showtrace: mark any screen, live">
-<meta property="og:description" content="Mark any screen, live: draw, point and highlight on top of any application, in any call. The live marks work today, as a beta; the trace is planned.">
+<meta property="og:description" content="Mark any screen, live: draw, point and highlight on top of any application, in any call.">
 <meta property="og:url" content="https://showtrace.github.io/showtrace/">
 <meta property="og:image" content="https://showtrace.github.io/showtrace/og-image.png">
 <meta property="og:image:type" content="image/png">
@@ -93,7 +93,6 @@
           <li>"I see what happened but not why."</li>
           <li>"Afterwards I can't repeat it."</li>
         </ul>
-        <p class="status-line">That is what we hear in our own teaching. It is not a finding from a study.</p>
       </div>
     </div>
   </section>
@@ -101,7 +100,6 @@
   <section class="section" id="today">
     <div class="wrap">
       <header class="section-head"><h2>The live marks</h2><span class="status status-today">Today</span></header>
-      <p class="section-lead">The current build is a beta of the live marks. Everything below works today; nothing in it is a plan. Each picture is a demonstration drawn in the browser on a stand-in screen, not a screenshot. It plays once when it comes into view; "Stop" ends it, and "Play again" plays it again.</p>
       <div class="features">
 
         <article class="feature feature-lead" data-demo="draw" data-rows="3,4" data-status="today">
@@ -165,8 +163,7 @@
   <section class="section" id="try">
     <div class="wrap">
       <h2>Try it</h2>
-      <p class="section-lead">Draw on the stand-in screen with the pen, the highlighter, the arrow and the fading ink, as the build draws on a real screen. Save what you drew as a PNG, labelled as a demonstration. Nothing leaves your browser: nothing is sent anywhere and nothing is stored.</p>
-      <p class="section-lead">Drawing needs a mouse, a pen or a finger. The keyboard reaches the tools, undo, redo, clear and Save as PNG, but it cannot draw.</p>
+      <p class="section-lead">Draw with the pen, the highlighter, the arrow and the fading ink, and save what you drew as a PNG. Nothing you draw leaves your browser.</p>
       <div class="sandbox" data-sandbox></div>
       <noscript><p class="note">The sandbox needs JavaScript, which this page loads from its own address only. Without it, the features above stand as text.</p></noscript>
     </div>
@@ -176,13 +173,13 @@
     <div class="wrap">
       <header class="section-head"><h2>The trace</h2><span class="status status-planned">Planned</span></header>
       <p class="tagline"><strong>Show, don't tell.</strong> Live markup with lasting steps.</p>
-      <p>The marks are live today. The lasting steps are the trace, and the trace is planned: the build does not keep steps yet.</p>
-      <p>A trace will be the record of one session: a numbered list of steps, in order. Each step will say what was done, who did it, and why, in the author's own words. A viewer will follow it afterwards without the video, and repeat the task. A reason that was not given will be marked "not given", never made up.</p>
-      <p>A trace will record what the operator chose to show the audience. It will watch nobody.</p>
+      <p>The build does not keep steps yet.</p>
+      <p>A trace will be the record of one session: a numbered list of steps, in order. Each step will say what was done, who did it, and why, in the author's own words. A viewer will follow it afterwards without the video, and repeat the task. A reason that was not given will be marked "not given".</p>
+      <p>A trace will record only what the person sharing the screen chose to show.</p>
 
       <article class="feature" data-demo="trace" data-rows="5,6,7,8,16" data-status="planned">
         <header class="feature-head"><h3>Each mark will become a step</h3><span class="status status-planned">Planned</span></header>
-        <p>A mark on the live screen will be added to the trace as a numbered step, with its author and the reason. Planned: the build does not keep steps yet.</p>
+        <p>A mark on the live screen will be added to the trace as a numbered step, with its author and the reason.</p>
         <div class="trace-demo">
           <div class="feature-demo"></div>
           <figure class="trace">
@@ -210,7 +207,7 @@
                 <span class="step-reason">Reason: not given.</span>
               </li>
             </ol>
-            <figcaption>Planned. A mock of the trace, drawn in HTML to show its shape. A filled dot marks a person's step.</figcaption>
+            <figcaption>The shape of a trace. A filled dot marks a person's step.</figcaption>
           </figure>
         </div>
       </article>
@@ -235,7 +232,7 @@
   <section class="section" id="going">
     <div class="wrap">
       <header class="section-head"><h2>Where this is going</h2><span class="status status-phase2">Phase 2</span></header>
-      <p>Phase 2 is a direction, not a plan. Nothing of it is scheduled.</p>
+      <p>Phase 2 is a direction, not a plan.</p>
       <p>More and more screens are operated on behalf of people: an AI agent clicks, types and navigates on someone's computer. The person whose computer it is becomes the audience, with the same questions a student has, and one more: "When an AI does it, I can't tell who did what."</p>
       <p>The same layer would serve that person, in one of two intents.</p>
       <dl class="intents">
@@ -252,7 +249,7 @@
 
       <article class="feature" data-demo="authors" data-rows="13" data-status="phase 2">
         <header class="feature-head"><h3>Two authors</h3><span class="status status-phase2">Phase 2</span></header>
-        <p>An AI would be an author of steps, next to a person. A person's marks stay solid, in their ink. An AI's marks would be dashed, in neutral grey, with an open ring at each click. Phase 2: no agent is connected; the AI here is named as an example.</p>
+        <p>A person's marks stay solid, in their ink. An AI's marks would be dashed, in neutral grey, with an open ring at each click.</p>
         <div class="trace-demo">
           <div class="feature-demo"></div>
           <figure class="trace">
@@ -280,7 +277,7 @@
                 <span class="step-reason">Reason: the students get the PDF after the lesson.</span>
               </li>
             </ol>
-            <figcaption>Phase 2. A mock, with an AI named as an example; no agent is connected today. An open ring marks an AI's step, a filled dot a person's.</figcaption>
+            <figcaption>An open ring marks an AI's step, a filled dot a person's.</figcaption>
           </figure>
         </div>
       </article>
@@ -292,7 +289,7 @@
       <h2>Download</h2>
       <div class="download-box">
         <p class="download-status"><strong>No public release yet.</strong></p>
-        <p>The current build is a beta of the live marks. It runs on Windows 10 (version 1809 or later) and Windows 11, 64-bit, and needs nothing else. When a release is published, the download will be here.</p>
+        <p>The current build is a beta of the live marks. It runs on Windows 10 (version 1809 or later) and Windows 11, 64-bit, and needs nothing else.</p>
       </div>
     </div>
   </section>
@@ -302,8 +299,7 @@
 <footer class="site-footer">
   <div class="wrap">
     <p>Showtrace is made by Kees Leemeijer and Jarry Perez.</p>
-    <p>A way to reach us follows once the owners have chosen it.</p>
-    <p>Copyright 2026 Kees Leemeijer and Jarry Perez. All rights reserved until a licence is chosen. The typeface is Atkinson Hyperlegible Next by the Braille Institute, under the SIL Open Font License.</p>
+    <p>Copyright 2026 Kees Leemeijer and Jarry Perez. All rights reserved.</p>
     <p class="to-top"><a href="#top">Back to the top</a></p>
   </div>
 </footer>
