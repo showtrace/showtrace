@@ -396,9 +396,15 @@
     if (!h.run) speak(h, text);
   }
 
-  /* The live region is polite: a screen reader says it when the visitor pauses, without moving focus (WCAG 4.1.3). */
+  /* The live region is polite: a screen reader says it when the visitor pauses, without moving focus (WCAG 4.1.3).
+     It keeps a message long enough to be spoken, then empties, so that browse mode does not read the end line a
+     second time after the state line. */
+  const LIVE_CLEAR_MS = 10000;
+
   function speak(h, text) {
+    clearTimeout(h.frame.hush);
     h.frame.live.textContent = text;
+    if (text) h.frame.hush = setTimeout(() => { h.frame.live.textContent = ''; }, LIVE_CLEAR_MS);
   }
 
   /* Things a play adds outside the document: the laser, the halo, the lens, popups, the dim. Reset removes them. */
@@ -846,9 +852,9 @@
      demonstration again calls start(h).
 
      The live region announces that a play with motion starts ("<card title>: the demonstration is playing.") and how
-     it ends ("... has ended." or, after Stop, "... has stopped.", then the end line). The lines in between are shown
-     and not announced. What h.say or h.end says outside a play, after a control, is announced as it is. A stop the
-     visitor did not ask for is silent.
+     it ends ("... has ended." or, after Stop, "... has stopped.", then the end line), then empties after 10 s. The
+     lines in between are shown and not announced. What h.say or h.end says outside a play, after a control, is
+     announced as it is. A stop the visitor did not ask for is silent.
 
      Space. Before the script runs, styles.css reserves the stage, the state line (3 lines for a stage of 30 rem and
      wider, 4 below that, 6 below 20.5 rem) and one row of controls; a demonstration with more controls, and the
@@ -856,13 +862,21 @@
      measure again after changing them.
 
      Errors. A build, reset or play that throws takes its demonstration out: its card keeps its text, the other
-     demonstrations go on, and the error is logged once. */
+     demonstrations go on, and the error is logged once. A control's handler is wrapped in guard(h, fn), so that an
+     error there does the same. */
 
-  /* The pointer goes to a button of the stand-in toolbar and clicks it, as a tool, a popup or a setting is chosen in
-     the build; changes are what the click does to the toolbar. */
-  async function pick(run, h, id, changes) {
-    await glide(run, h, h.tb.centre(id), 450);
+  /* A click on a button of the stand-in toolbar: the pointer goes to it, and the toolbar changes as the click changes
+     it, as a tool, a popup or a setting is chosen in the build. The same approach in every demonstration. While the
+     button is clicked it shows the build's hover, as press shows the stand-in application's button pressed; the hover
+     sits in a group of the toolbar's theme, which gives it its colour. */
+  async function click(run, h, id, changes, ms = 450) {
+    const at = h.tb.centre(id);
+    await glide(run, h, at, ms);
+    const hover = extra(h, svg('g', { class: `tb tb-${h.tb.state.theme}` },
+      svg('rect', { class: 'tb-field', x: at.x - 11, y: at.y - 11, width: 22, height: 22, rx: 5, opacity: 0.5 })));
+    h.tb.g.after(hover);
     await run.pause(150);
+    hover.remove();
     if (changes) h.tb.set(changes);
   }
 
@@ -876,12 +890,12 @@
       h.tb = toolbar(h, { draw: true });
       addPointer(h, P(400, 240));
       /* A control acts on the end state: a play in progress jumps there first. */
-      const act = (fn, nothing) => async () => {
+      const act = (fn, nothing) => guard(h, async () => {
         await stop(h);
         const text = fn();
         if (!text) { h.say(nothing); return; }
         h.end(text, marksAlt(h));
-      };
+      });
       const count = () => `${h.doc.count} ${h.doc.count === 1 ? 'mark' : 'marks'} on the screen.`;
       h.controls.append(
         button('Undo', act(() => h.doc.undo() && `Undo. ${count()}`, 'Nothing to undo.')),
@@ -891,7 +905,7 @@
     },
     reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ active: null }); movePointer(h, P(400, 240)); },
     async play(run, h) {
-      const tool = async (id, text) => { await pick(run, h, id, { active: id }); h.say(text); };
+      const tool = async (id, text) => { await click(run, h, id, { active: id }); h.say(text); };
       await tool('pen', 'Pen: a smooth stroke, 4 px, in the pen colour.');
       tagMark(await drawStroke(run, h, curve(P(190, 172), P(250, 160), P(330, 184), P(400, 170), 36, 1.2), { ms: 900 }), 'a pen stroke');
       await run.pause(300);
@@ -914,11 +928,11 @@
       await tool('text', 'Text: click to type. Click the text later to edit, move or resize it.');
       tagMark(await drawText(run, h, P(500, 272), 'Click here', { ms: 700 }), 'the text Click here');
       await run.pause(400);
-      await pick(run, h, 'undo');
+      await click(run, h, 'undo');
       h.say('Undo, on the toolbar, takes the text back.');
       h.doc.undo();
       await run.pause(900);
-      await pick(run, h, 'redo');
+      await click(run, h, 'redo');
       h.say('Redo brings it back.');
       h.doc.redo();
       await run.pause(600);
@@ -934,15 +948,6 @@
     if (!kinds.length) return 'A stand-in screen with no marks.';
     const list = kinds.length === 1 ? kinds[0] : `${kinds.slice(0, -1).join(', ')} and ${kinds[kinds.length - 1]}`;
     return `A stand-in screen with ${kinds.length === 1 ? 'one mark' : `${kinds.length} marks`}: ${list}.`;
-  }
-
-  /* A click on a button of the stand-in toolbar: the pointer goes to the button, and the toolbar changes as the click
-     changes it. The same approach in every demonstration of this group, so that the visitor sees where a change comes
-     from. */
-  async function tap(run, h, id, changes, ms = 500) {
-    await glide(run, h, h.tb.centre(id), ms);
-    await run.pause(150);
-    h.tb.set(changes);
   }
 
   /* A click on the stand-in application's button: it shows pressed for a moment. */
@@ -972,7 +977,7 @@
     async play(run, h) {
       /* The laser button switches to draw mode; over the screen the laser hides the pointer (spec 6.4, 6.6). */
       h.say('The laser button: draw mode, and the laser.');
-      await tap(run, h, 'laser', { draw: true, active: 'laser' });
+      await click(run, h, 'laser', { draw: true, active: 'laser' });
       h.say('Laser: a red dot that hides the pointer, with a trail that fades in 1.5 s. It leaves no ink.');
       /* The laser draws over the screen, not over the toolbar: it starts just below it. */
       await glide(run, h, P(h.at.x, h.tb.bottom() + 10), 200);
@@ -987,13 +992,13 @@
       await run.pause(700);
       /* The halo is a toggle and shows in every mode (spec 6.6). */
       h.say('The halo button: a yellow circle of 40 px around the pointer, in cursor mode as in draw mode. A recording shows it.');
-      await tap(run, h, 'halo', { on: { halo: 'tint' } });
+      await click(run, h, 'halo', { on: { halo: 'tint' } });
       addHalo(h);
       await glide(run, h, P(540, 300), 1000);
       await run.pause(400);
       /* The lens opens at 2x on the next pointer movement in draw mode and leaves the halo out (spec 6.7). */
       h.say('The magnifier button: a lens over the pointer at 2x. It shows the screen without the halo.');
-      await tap(run, h, 'magnifier', { draw: true, active: 'magnifier', on: { halo: 'tint' } }, 700);
+      await click(run, h, 'magnifier', { draw: true, active: 'magnifier', on: { halo: 'tint' } }, 700);
       await glide(run, h, P(h.at.x, 130), 250);
       addLens(h);
       await glide(run, h, P(330, 236), 900);
@@ -1027,19 +1032,20 @@
       const radios = [3, 8, 20].map((s, i) => el('label', { class: 'radio' },
         el('input', Object.assign({ type: 'radio', name, value: s }, i === 0 ? { checked: '' } : {})), ` ${s} s`));
       const set = el('fieldset', { class: 'control-group' }, el('legend', { class: 'control-label', text: 'Fades after' }), ...radios);
-      set.addEventListener('change', () => start(h));
+      set.addEventListener('change', guard(h, () => start(h)));
       h.controls.append(set);
       return h;
     },
-    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ active: 'arrow', on: {} }); movePointer(h, P(372, 250)); },
+    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ active: null, on: {} }); movePointer(h, P(372, 250)); },
     async play(run, h) {
       const seconds = h.choice();
       const [name] = FADE_CHOICES.find(([, s]) => s === seconds);
       h.say('Fading ink is off. An arrow points at the button, and it stays.');
+      await click(run, h, 'arrow', { active: 'arrow' });
       await drawShape(run, h, 'arrow', P(372, 250), P(474, 314), { ms: 600 });
       await run.pause(500);
       h.say('The fade button: Off, Short 3 s, Medium 8 s, Long 20 s.');
-      await tap(run, h, 'fade', {});
+      await click(run, h, 'fade');
       const pop = fadePopup(h, name);
       await glide(run, h, pop.at, 500);
       await run.pause(250);
@@ -1049,7 +1055,7 @@
       h.tb.set({ on: { fade: true } });
       /* A new mark takes the fade that is on when it is drawn; marks drawn before keep theirs (spec 5.4). */
       h.say(`${name}: marks drawn from now on fade after ${seconds} s. The arrow keeps its own setting.`);
-      await tap(run, h, 'ellipse', { active: 'ellipse' });
+      await click(run, h, 'ellipse', { active: 'ellipse' });
       const node = await drawShape(run, h, 'ellipse', P(488, 306), P(624, 366), { ms: 800 });
       await glide(run, h, P(430, 230), 400);
       for (let left = seconds; left > 0; left--) {
@@ -1069,23 +1075,22 @@
   function fadePopup(h, name) {
     const w = 52, gap = 4, pad = 6, hgt = 20;
     const pop = popup(h, h.tb.centre('fade').x, pad * 2 + FADE_CHOICES.length * w + (FADE_CHOICES.length - 1) * gap, pad * 2 + hgt);
-    let at = null, pick = null;
+    let at = null, chosen = null;
     FADE_CHOICES.forEach(([label], i) => {
       const x = pop.x + pad + i * (w + gap), y = pop.y + pad;
       const item = svg('rect', { class: 'tb-textbutton', x, y, width: w, height: hgt, rx: 4 });
       pop.g.append(item, svg('text', { class: 'tb-text', x: x + w / 2, y: y + 14, 'text-anchor': 'middle', text: label }));
-      if (label === name) { at = P(x + w / 2, y + hgt / 2); pick = [x, y]; }
+      if (label === name) { at = P(x + w / 2, y + hgt / 2); chosen = [x, y]; }
     });
     return {
       g: pop.g, at,
       choose() {
-        const [x, y] = pick;
+        const [x, y] = chosen;
         pop.g.append(svg('rect', { x, y, width: w, height: hgt, rx: 4, class: 'tb-active' }),
           svg('rect', { x: x + 0.75, y: y + 0.75, width: w - 1.5, height: hgt - 1.5, rx: 3.25, class: 'tb-edge' }));
       },
     };
   }
-
 
   /* A popup of the toolbar that lists choices, as the board and screenshot buttons open (spec 6.9, items 11 and 12):
      one row per choice, '|' for a separator. A row is a bar, as in the other popups, and the state line names the
@@ -1119,9 +1124,9 @@
   /* The pointer goes to a toolbar button, its list opens, and the pointer picks a row: the build's hover shows on it,
      and the list closes. */
   async function pickFrom(run, h, id, rows, index, checked) {
-    await glide(run, h, h.tb.centre(id), 450);
+    await click(run, h, id);
     const list = listPopup(h, id, rows, checked);
-    await run.pause(300);
+    await run.pause(150);
     const row = list.places[index];
     await glide(run, h, row.at, 350);
     list.g.insertBefore(svg('rect', { class: 'tb-field', x: row.x, y: row.y, width: row.w, height: LIST.row, rx: 4 }), list.g.children[1]);
@@ -1171,7 +1176,7 @@
       };
       h.controls.append(group('Board',
         ...[['', 'None'], ...Object.entries(BOARDS).map(([k, b]) => [k, b.label])].map(([kind, label]) => {
-          const b = button(label, () => choose(kind || null), { 'aria-pressed': 'false' });
+          const b = button(label, guard(h, () => choose(kind || null)), { 'aria-pressed': 'false' });
           h.buttons[kind || 'none'] = b;
           return b;
         })));
@@ -1184,17 +1189,20 @@
       movePointer(h, P(400, 240));
     },
     async play(run, h) {
-      h.tb.set({ active: 'pen' });
       h.say('Marks on the live screen.');
+      await click(run, h, 'pen', { active: 'pen' });
       await drawStroke(run, h, curve(P(190, 172), P(250, 160), P(330, 184), P(400, 170), 30, 1.2), { ms: 600 });
+      await click(run, h, 'arrow', { active: 'arrow' });
       await drawShape(run, h, 'arrow', P(430, 384), P(496, 340), { ms: 400 });
       await run.pause(500);
       h.say('The board button opens a list: None, the four boards, and the monitor to show them on.');
       await pickBoard(run, h, 'white');
       h.say('Whiteboard, over the live screen of this monitor. Draw mode is on; the screen marks wait underneath.');
       await run.pause(500);
+      await click(run, h, 'rectangle', { active: 'rectangle' });
       await drawShape(run, h, 'rectangle', P(180, 110), P(290, 170), { doc: h.boardDoc, ms: 500 });
       await drawShape(run, h, 'rectangle', P(380, 230), P(490, 290), { doc: h.boardDoc, ms: 500 });
+      await click(run, h, 'arrow', { active: 'arrow' });
       await drawShape(run, h, 'arrow', P(292, 142), P(378, 228), { doc: h.boardDoc, ms: 500 });
       await run.pause(700);
       h.say('Blackboard. The marks on the board stay when you switch from one board to another.');
@@ -1258,12 +1266,12 @@
       addPointer(h, P(400, 240));
       h.thumb = el('div', { class: 'demo-thumb', hidden: '' });
       h.controls.after(h.thumb);
-      h.controls.append(button('Full screen', async () => {
+      h.controls.append(button('Full screen', guard(h, async () => {
         await stop(h);
         const name = shotName();
         showShot(h, { x: 0, y: 0, w: 640, h: 400 }, name);
         h.say(`Full screen: the monitor under the pointer, with the marks, without the toolbar and the pointer. Copied and saved as ${name}.`);
-      }));
+      })));
       return h;
     },
     reset(h) {
@@ -1307,7 +1315,7 @@
       await run.hold(TOAST_MS);
       toast.g.remove();
       await run.pause(300);
-      h.end('The region is saved with the marks in it, as a board would be; the toolbar and the pointer are not. It goes to the clipboard, to a PNG in Pictures\\Showtrace, or both.',
+      h.end('The marks are in the screenshot, and a board would be too; the toolbar and the pointer are not. It goes to the clipboard, to a PNG in Pictures\\Showtrace, or both.',
         'A stand-in screen with marks. Below it, the screenshot of a region: the marks are in it, the toolbar and the pointer are not.');
     },
   };
@@ -1381,7 +1389,7 @@
     async play(run, h) {
       /* Picking a drawing tool switches to draw mode, so one click starts drawing (spec 6.4); the toolbar glows (6.3). */
       h.say('Cursor mode: clicks go to the application. One click on a tool, and you are in draw mode.');
-      await tap(run, h, 'arrow', { draw: true, active: 'arrow' }, 700);
+      await click(run, h, 'arrow', { draw: true, active: 'arrow' }, 700);
       h.say('Draw mode: the toolbar glows, and the pointer draws on the screen.');
       await drawShape(run, h, 'arrow', P(400, 250), P(498, 330), { ms: 600 });
       await run.pause(500);
@@ -1394,11 +1402,11 @@
       h.say('The click reaches the button under the marks.');
       await run.pause(800);
       h.say('Another click on a tool, and you draw again.');
-      await tap(run, h, 'ellipse', { draw: true, active: 'ellipse' }, 700);
+      await click(run, h, 'ellipse', { draw: true, active: 'ellipse' }, 700);
       await drawShape(run, h, 'ellipse', P(488, 306), P(624, 366), { ms: 600 });
       await run.pause(500);
       /* Hold-to-interact: while Ctrl and Alt are down in draw mode, clicks pass through; draw mode stays (spec 6.3). */
-      h.say('Hold ', { key: 'Ctrl' }, ' + ', { key: 'Alt' }, ' in draw mode: for a moment, clicks pass through the marks. Draw mode stays on.');
+      h.say('Hold ', { key: 'Ctrl' }, '+', { key: 'Alt' }, ' in draw mode: for a moment, clicks pass through the marks. Draw mode stays on.');
       await glide(run, h, P(556, 336), 600);
       await press(run, h);
       await run.pause(500);
@@ -1451,14 +1459,14 @@
         svg('linearGradient', { id: 'picker-black', x2: 0, y2: 1 }, at(0, '#000000', 0), at(1, '#000000')),
         svg('linearGradient', { id: 'picker-hue', x2: 0, y2: 1 }, ...['#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF', '#FF0000'].map((c, i) => at(i / 6, c))));
       h.swatches = PALETTE.map(hex => {
-        const b = button('', () => setPen(h, { colour: hex }), { class: 'swatch', 'aria-label': `Colour ${hex}`, 'aria-pressed': 'false' });
+        const b = button('', guard(h, () => setPen(h, { colour: hex })), { class: 'swatch', 'aria-label': `Colour ${hex}`, 'aria-pressed': 'false' });
         b.style.setProperty('--swatch', hex);
         return b;
       });
       h.range = el('input', { type: 'range', min: 1, max: 40, value: PEN_WIDTH, 'aria-label': 'Width, 1 to 40' });
-      h.out = el('output', { text: String(PEN_WIDTH) });
+      h.out = el('output', { text: String(PEN_WIDTH), 'aria-live': 'off' });
       /* The value is read before the play is stopped: the end state of a play sets the slider too. */
-      h.range.addEventListener('input', () => setPen(h, { width: Number(h.range.value) }));
+      h.range.addEventListener('input', guard(h, () => setPen(h, { width: Number(h.range.value) })));
       h.controls.append(group('Palette', ...h.swatches), group('Width', h.range, h.out));
       return h;
     },
@@ -1474,7 +1482,7 @@
       const centreOf = r => P(+r.getAttribute('x') + +r.getAttribute('width') / 2, +r.getAttribute('y') + +r.getAttribute('height') / 2);
       /* The palette popup: 32 colours in four rows, then Custom and Use at startup. */
       const openPalette = async () => {
-        await pick(run, h, 'colour');
+        await click(run, h, 'colour');
         const pal = popup(h, h.tb.centre('colour').x, pad * 2 + 8 * cell + 7 * gap, pad * 2 + 4 * cell + 3 * gap + 24);
         const swatches = PALETTE.map((hex, i) => svg('rect', { x: pal.x + pad + (i % 8) * (cell + gap), y: pal.y + pad + Math.floor(i / 8) * (cell + gap), width: cell, height: cell, rx: 3, fill: hex, class: 'tb-swatch' }));
         const custom = svg('rect', { class: 'tb-textbutton', x: pal.x + pad, y: pal.y + pal.h - pad - 16, width: 46, height: 16, rx: 4 });
@@ -1496,7 +1504,7 @@
       tagMark(await drawStroke(run, h, curve(P(200, 200), P(260, 170), P(340, 230), P(420, 200), 30, 1), { colour: h.colour, ms: 700 }), `a ${h.colour} stroke of ${h.width} px`);
       await run.pause(400);
 
-      await pick(run, h, 'width');
+      await click(run, h, 'width');
       h.say('The width button opens a slider, 1 to 40, with a preview dot in the colour.');
       const wp = popup(h, h.tb.centre('width').x, 200, 36);
       const track = svg('line', { class: 'tb-track', x1: wp.x + 40, y1: wp.y + 18, x2: wp.x + 160, y2: wp.y + 18 });
@@ -1587,7 +1595,7 @@
       h.buttons = {};
       const place = async (changes, text) => { await stop(h); h.tb.set(changes); shown(h); h.end(text, toolbarAlt(h)); };
       const toggles = (label, items) => group(label, ...items.map(([key, name, changes, text]) => {
-        h.buttons[key] = button(name, () => place(changes, text), { 'aria-pressed': 'false' });
+        h.buttons[key] = button(name, guard(h, () => place(changes, text)), { 'aria-pressed': 'false' });
         return h.buttons[key];
       }));
       h.controls.append(
@@ -1608,29 +1616,29 @@
     async play(run, h) {
       const step = async (text, ms) => { shown(h); h.say(text); await run.pause(ms); };
       await step('Horizontal, at the top centre of the primary monitor. In draw mode its border glows.', 1400);
-      await pick(run, h, 'menu', Object.assign({ vertical: true }, TOOLBAR_RIGHT));
+      await click(run, h, 'menu', Object.assign({ vertical: true }, TOOLBAR_RIGHT));
       await step(`${VERTICAL_LINE} Orientation is in its menu.`, 2200);
-      await pick(run, h, 'main', { collapsed: true });
+      await click(run, h, 'main', { collapsed: true });
       await step('A click on its main icon collapses it to the icon.', 1200);
       h.tb.set({ hidden: true });
       await step('Ghost mode, in the tray menu, hides it.', 1200);
       h.tb.set({ hidden: false });
       await step('A click on the tray icon brings it back, where it was.', 1200);
-      await pick(run, h, 'main', { collapsed: false });
+      await click(run, h, 'main', { collapsed: false });
       await step('A click on the main icon expands it again.', 1000);
-      await pick(run, h, 'menu', { vertical: false, x: 320, y: 8 });
+      await click(run, h, 'menu', { vertical: false, x: 320, y: 8 });
       await step('Horizontal again, from its menu.', 1000);
       /* A drag on the main icon, into the gap between the lines and the panel of the stand-in. */
-      await pick(run, h, 'main');
+      await click(run, h, 'main');
       h.say('A drag on the main icon moves it. It remembers where you leave it.');
       await run.tween(800, t => { h.tb.set({ y: round(lerp(8, 164, t)) }); movePointer(h, h.tb.centre('main')); });
       await run.pause(1000);
-      await pick(run, h, 'menu', { theme: 'light' });
+      await click(run, h, 'menu', { theme: 'light' });
       await step('Light theme, from its menu.', 1000);
-      h.tb.set({ theme: 'dark' });
-      await step('Dark theme.', 1000);
-      h.tb.set({ theme: 'auto' });
-      await step(AUTO_LINE, 600);
+      await click(run, h, 'menu', { theme: 'dark' });
+      await step('Dark theme, from its menu.', 1000);
+      await click(run, h, 'menu', { theme: 'auto' });
+      await step('Auto theme, from its menu. It follows the Windows app theme; here it follows your browser.', 600);
       h.end('Horizontal or vertical, collapsed or hidden; light, dark or auto. The buttons below change it. The stand-in toolbar is larger than a real one, with icons drawn for this page.', toolbarAlt(h));
     },
   };
@@ -1817,6 +1825,10 @@
     return start(h, Object.assign({ instant: true, quiet: !how.stopped }, how));
   }
 
+  /* A control's handler: an error takes the demonstration out, as an error in a play does. The handler runs in the
+     microtask after the event, before anything else can change what it reads. */
+  const guard = (h, fn) => (...args) => Promise.resolve().then(() => fn(...args)).catch(error => fail(h.card, error, h));
+
   /* Cancels a play where it is, before a new one starts. */
   function halt(h) {
     const run = h.run;
@@ -1866,12 +1878,16 @@
   function mount(card) {
     const demo = DEMOS[card.dataset.demo];
     const slot = card.querySelector('.feature-demo');
-    if (!demo || !slot) return;
+    if (!slot) return;
+    if (!demo) { slot.hidden = true; console.error(`Showtrace: no demonstration is named "${card.dataset.demo}"; its card shows its text only.`); return; }
     let h = null;
     try {
       h = demo.build(card, slot);
       h.frame.demo = demo;
       h.frame.name = card.querySelector('h3')?.textContent.trim() || 'Demonstration';
+      /* The figure carries the card's name, so that its controls, named Play or Undo as in every card, are found in
+         their card. */
+      h.box.parentElement.setAttribute('aria-label', `${h.frame.name}, demonstration`);
       h.controls.prepend(playControl(h));
     } catch (error) {
       fail(card, error, h);
@@ -1910,11 +1926,12 @@
   });
 
   /* A printed page shows end states: a card that has not come into view, or whose play still moves, is brought to
-     its end state before the page prints, quietly. An instant run ends before the browser paints. */
+     its end state before the page prints, quietly. An instant run ends before the browser paints. The card stays
+     observed, so that a play started after the print still stops out of view; it counts as played, so the observer
+     does not start it by itself. */
   window.addEventListener('beforeprint', () => {
     for (const h of mounted) {
       if (h.frame.played && !moving(h)) continue;
-      if (observer) observer.unobserve(h.box);
       start(h, { instant: true, quiet: true });
     }
   });
