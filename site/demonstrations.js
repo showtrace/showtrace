@@ -1308,7 +1308,7 @@
       await run.hold(TOAST_MS);
       toast.g.remove();
       await run.pause(300);
-      h.end('The region is saved with the marks in it, as a board would be; the toolbar and the pointer are not. It goes to the clipboard, to a PNG in Pictures\\Showtrace, or both.',
+      h.end('The marks are in the screenshot, and a board would be too; the toolbar and the pointer are not. It goes to the clipboard, to a PNG in Pictures\\Showtrace, or both.',
         'A stand-in screen with marks. Below it, the screenshot of a region: the marks are in it, the toolbar and the pointer are not.');
     },
   };
