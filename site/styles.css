@@ -1,12 +1,60 @@
 /* Showtrace website.
-   Colour tokens: brand.md, section 6.2. Type: 6.3 (the system font stack until the typeface is decided).
-   Motion: 6.6, the self-drawing stroke on the logo at load and nowhere else.
+   Colour tokens: brand.md, section 6.2. Type: 6.3, Atkinson Hyperlegible Next, self-hosted from site/fonts/.
+   Motion: 6.6, the self-drawing stroke on the logo at load, on the hero mark, and on a step added to the trace.
+   The demonstrations are drawn by demonstrations.js on a neutral stand-in screen; their colours are below.
    No fonts, scripts or images from other domains. Works without JavaScript and at 320 px. */
+
+/* Atkinson Hyperlegible Next, variable weight 200 to 800, upright and italic (Braille Institute, SIL Open Font License 1.1).
+   font-display: swap, on purpose: the text reads at once in the fallback below, and the face takes over when it
+   arrives. The page preloads the upright file, so it is mostly there before the first paint; when it is not, the
+   fallback keeps every line where it is, so the swap moves nothing. */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("fonts/AtkinsonHyperlegibleNext-wght.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: italic;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("fonts/AtkinsonHyperlegibleNext-Italic-wght.woff2") format("woff2");
+}
+
+/* The fallback while the face loads: Arial, or a font with Arial's widths (Liberation Sans, Arimo), scaled to the
+   widths of Atkinson Hyperlegible Next and given its vertical metrics, so that a line breaks at the same word in both.
+   Measured on 2026-10-06: the face is 0.989 of Arial's width on the page's own text at weight 400, and 0.986 of Arial
+   Bold's on the headings at 700; its ascent and descent are 984 and 316 per 1000 (hhea and typo alike). Each override
+   is the face's metric divided by the size-adjust. A browser that does not know a descriptor ignores it. */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next fallback";
+  font-style: normal;
+  font-weight: 100 549;
+  src: local("Arial"), local("ArialMT"), local("Liberation Sans"), local("LiberationSans"), local("Arimo");
+  size-adjust: 98.9%;
+  ascent-override: 99.5%;
+  descent-override: 31.95%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Next fallback";
+  font-style: normal;
+  font-weight: 550 900;
+  src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold"), local("LiberationSans-Bold"), local("Arimo Bold");
+  size-adjust: 98.6%;
+  ascent-override: 99.8%;
+  descent-override: 32.05%;
+  line-gap-override: 0%;
+}
 
 :root {
   color-scheme: light dark;
 
-  /* Tokens */
+  /* Colour tokens */
   --trace-teal: #0E8192;
   --trace-teal-deep: #0A6B7A;
   --trace-teal-light: #4DD0E1;
@@ -31,17 +79,67 @@
   --ai: var(--ink-soft);
   --signal: var(--signal-light);
   --logo: var(--trace-teal);
-  --rule: rgba(88, 96, 105, 0.25);
+  --rule: rgba(88, 96, 105, 0.22);
+  --rule-strong: rgba(88, 96, 105, 0.45);
   --focus: var(--trace-teal);
+  --tint: rgba(14, 129, 146, 0.1);
+  /* A filled link: white on the deep teal, 6.18 to 1 (brand.md, 6.2). */
+  --action-bg: var(--trace-teal-deep);
+  --action-text: var(--paper);
+
+  /* The stand-in screen: greys without a hue, so that it never reads as a screenshot. The surfaces a mark is drawn on
+     (bg, bar, side, panel, dropdown) keep the pen red #FF3B30 and the laser red at 3:1 or more in both schemes (WCAG
+     1.4.11); the lens frame and the monitor frames have 3:1 against them. */
+  --screen-bg: #F7F7F7;
+  --screen-bar: #EEEEEE;
+  --screen-side: #F0F0F0;
+  --screen-edge: #DCDCDC;
+  --screen-block: #CACACA;
+  --screen-line: #DADADA;
+  --screen-panel: #FFFFFF;
+  --screen-shade: #D4D4D4;
+  --screen-button: #C7C7C7;
+  --screen-button-label: #8C8C8C;
+  --screen-pressed: #A9A9A9;
+  --screen-dropdown: #FFFFFF;
+  --screen-frame: #858585;
+  --lens-frame: rgba(26, 31, 36, 0.62);
+  --demo-label-bg: rgba(26, 31, 36, 0.78);
+  --demo-label-text: #FFFFFF;
+
+  /* Type scale */
+  --text-xs: 0.8125rem;
+  --text-s: 0.9375rem;
+  --text-m: 1.0625rem;
+  --text-l: 1.25rem;
+  --text-xl: clamp(1.5rem, 1.15rem + 1.5vw, 2.125rem);
+  --text-2xl: clamp(2.25rem, 1.3rem + 4.2vw, 3.75rem);
+  --leading: 1.55;
+  --leading-tight: 1.1;
+
+  /* Spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4.5rem;
+  --space-9: 6rem;
 
   --radius-s: 4px;
   --radius-m: 6px;
   --radius-l: 12px;
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --measure: 38rem;
+  /* About 70 characters a line at the body size. */
+  --measure: 34rem;
+  /* The space at the sides of the page: 1rem at 320 px, so that a card keeps its width there. */
+  --gutter: clamp(1rem, 0.4rem + 3vw, 1.25rem);
 }
 
-@media (prefers-color-scheme: dark) {
+/* Dark on a screen only: paper takes the light tokens, whatever the visitor's scheme. */
+@media screen and (prefers-color-scheme: dark) {
   :root {
     --bg: var(--slate);
     --surface: rgba(238, 238, 238, 0.06);
@@ -53,8 +151,30 @@
     --ai: var(--chalk-soft);
     --signal: var(--signal-dark);
     --logo: var(--chalk);
-    --rule: rgba(170, 170, 170, 0.3);
+    --rule: rgba(170, 170, 170, 0.25);
+    --rule-strong: rgba(170, 170, 170, 0.5);
     --focus: var(--trace-teal-light);
+    --tint: rgba(77, 208, 225, 0.14);
+    /* Slate on the light teal, 8.76 to 1. */
+    --action-bg: var(--trace-teal-light);
+    --action-text: var(--slate);
+
+    --screen-bg: #2B2B2B;
+    --screen-bar: #323232;
+    --screen-side: #303030;
+    --screen-edge: #3E3E3E;
+    --screen-block: #545454;
+    --screen-line: #464646;
+    --screen-panel: #333333;
+    --screen-shade: #1F1F1F;
+    --screen-button: #5A5A5A;
+    --screen-button-label: #8E8E8E;
+    --screen-pressed: #747474;
+    --screen-dropdown: #363636;
+    --screen-frame: #767676;
+    --lens-frame: rgba(238, 238, 238, 0.55);
+    --demo-label-bg: rgba(238, 238, 238, 0.85);
+    --demo-label-text: #1A1F24;
   }
 }
 
@@ -67,38 +187,50 @@
 }
 
 html {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible Next fallback", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   font-size: 100%;
-  line-height: 1.55;
+  line-height: var(--leading);
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
+  font-size: var(--text-m);
 }
 
 h1,
 h2,
 h3 {
   font-weight: 700;
-  line-height: 1.15;
+  line-height: var(--leading-tight);
   margin: 0 0 0.5em;
   letter-spacing: -0.01em;
   overflow-wrap: break-word;
+  text-wrap: balance;
+}
+
+/* No word alone on a last line, where the browser knows how; elsewhere the text wraps as it always did. */
+p,
+li,
+dt,
+dd,
+figcaption {
+  text-wrap: pretty;
 }
 
 h1 {
-  font-size: clamp(2rem, 1.2rem + 4vw, 3.5rem);
+  font-size: var(--text-2xl);
 }
 
 h2 {
-  font-size: clamp(1.5rem, 1.1rem + 2vw, 2.25rem);
+  font-size: var(--text-xl);
 }
 
 h3 {
-  font-size: 1.0625rem;
+  font-size: var(--text-l);
 }
 
 p,
@@ -117,6 +249,17 @@ a:hover {
   color: var(--text);
 }
 
+kbd {
+  font-family: inherit;
+  font-size: 0.9em;
+  font-weight: 600;
+  padding: 0 0.35em;
+  border: 1px solid var(--rule-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-s);
+  white-space: nowrap;
+}
+
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
@@ -124,7 +267,7 @@ a:hover {
 }
 
 .wrap {
-  width: min(100% - 2.5rem, 68rem);
+  width: min(100% - 2 * var(--gutter), 68rem);
   margin-inline: auto;
 }
 
@@ -133,7 +276,7 @@ a:hover {
   left: 1rem;
   top: -100px;
   z-index: 10;
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
   background: var(--bg);
   color: var(--accent-text);
   border: 2px solid var(--accent);
@@ -146,8 +289,9 @@ a:hover {
 
 /* Header and logo */
 
+/* At 320 px the logo and two lines of links: about 135 px, a fifth of a phone's height. */
 .site-header {
-  padding: 1.25rem 0;
+  padding: clamp(0.75rem, 0.5rem + 1vw, 1rem) 0;
   border-bottom: 1px solid var(--rule);
 }
 
@@ -156,17 +300,17 @@ a:hover {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem 2rem;
+  gap: var(--space-1) var(--space-6);
 }
 
 .logo {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: var(--space-2);
   color: var(--logo);
   text-decoration: none;
   font-weight: 600;
-  font-size: 1.5rem;
+  font-size: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
   letter-spacing: -0.01em;
 }
 
@@ -180,16 +324,24 @@ a:hover {
   overflow: visible;
 }
 
-/* The stroke draws itself once, 1100 ms, and the dot appears after 70 percent of that time. */
-.logo-stroke {
+/* The signature: the stroke draws itself once, 1100 ms, and the dot appears after 70 percent of that time (brand.md, 6.6). */
+.mark-stroke {
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
   animation: draw 1100ms var(--ease) forwards;
 }
 
-.logo-dot {
+.mark-dot {
   opacity: 0;
   animation: appear 1ms linear 770ms forwards;
+}
+
+.hero-mark .mark-stroke {
+  animation-delay: 350ms;
+}
+
+.hero-mark .mark-dot {
+  animation-delay: 1120ms;
 }
 
 @keyframes draw {
@@ -204,30 +356,28 @@ a:hover {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .logo-stroke {
-    animation: none;
-    stroke-dashoffset: 0;
-  }
-
-  .logo-dot {
-    animation: none;
-    opacity: 1;
-  }
-}
-
 .site-nav ul {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem 1.25rem;
+  gap: 0 var(--space-4);
 }
 
+@media (min-width: 48rem) {
+  .site-nav ul {
+    column-gap: var(--space-5);
+  }
+}
+
+/* Each link is at least 24 px tall, a target of its own (WCAG 2.5.8). */
 .site-nav a {
+  display: inline-block;
+  padding: var(--space-1) 0;
   font-weight: 500;
   text-decoration: none;
+  font-size: var(--text-s);
 }
 
 .site-nav a:hover,
@@ -238,25 +388,127 @@ a:hover {
 /* Hero */
 
 .hero {
-  padding: clamp(3rem, 8vw, 6rem) 0 clamp(2rem, 6vw, 4rem);
+  padding: clamp(2.5rem, 7vw, 5.5rem) 0 clamp(2rem, 5vw, 4rem);
 }
 
-.hero h1 {
-  max-width: 20ch;
+.hero-grid {
+  display: grid;
+  gap: var(--space-6) var(--space-8);
+  align-items: center;
 }
 
+@media (min-width: 54rem) {
+  .hero-grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(14rem, 0.6fr);
+  }
+}
+
+/* Wide enough for the lead on one line next to the hero mark; two even lines when it wraps. */
 .lead {
   font-size: clamp(1.125rem, 1rem + 0.6vw, 1.375rem);
-  max-width: var(--measure);
+  max-width: 40rem;
+  text-wrap: balance;
 }
 
 .sentence {
   max-width: var(--measure);
-  font-size: 1.0625rem;
 }
 
 .status-line {
   color: var(--text-soft);
+  font-size: var(--text-s);
+  margin-bottom: 0;
+}
+
+/* The status words of the hero: what works today and what is planned, in the words the cards use. */
+.status-key {
+  list-style: none;
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-s);
+}
+
+.status-key li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.status-key .status {
+  flex: none;
+  min-width: 4.75rem;
+  text-align: center;
+}
+
+/* Two links that look like buttons: they move down the page, so they stay links. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-6) 0 0;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.45rem 1.1rem;
+  border: 2px solid var(--accent-text);
+  border-radius: var(--radius-m);
+  color: var(--accent-text);
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.action:hover {
+  color: var(--accent-text);
+  background: var(--tint);
+}
+
+.action-primary,
+.action-primary:hover {
+  color: var(--action-text);
+  background: var(--action-bg);
+  border-color: var(--action-bg);
+}
+
+.action-primary:hover {
+  text-decoration: underline;
+}
+
+/* The hero mark is the signature at its largest. Below two columns it would sit under the text as a picture of
+   nothing, so it leaves; the logo still draws itself at load. */
+.hero-mark {
+  display: none;
+  color: var(--logo);
+  max-width: 26rem;
+  margin-inline: auto;
+}
+
+@media (min-width: 54rem) {
+  .hero-mark {
+    display: block;
+    width: 100%;
+  }
+}
+
+.hero-mark svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* The 404 page: what happened and the way back. */
+.not-found {
+  padding: clamp(2.5rem, 7vw, 5.5rem) 0 clamp(3rem, 9vw, 7rem);
+}
+
+.not-found p {
+  max-width: var(--measure);
 }
 
 /* Sections */
@@ -271,54 +523,93 @@ a:hover {
   max-width: var(--measure);
 }
 
-.section h2 .status {
-  vertical-align: middle;
-  margin-left: 0.5rem;
-  position: relative;
-  top: -0.15em;
+.section-lead {
+  color: var(--text-soft);
+}
+
+/* A section heading with the status word of what the section shows. */
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+/* The problem: the scene, and next to it, from 60rem, the words of the people watching. */
+@media (min-width: 60rem) {
+  .problem {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: var(--space-8);
+    align-items: start;
+  }
+
+  .problem > h2 {
+    grid-column: 1 / -1;
+  }
 }
 
 .quotes {
+  list-style: none;
   max-width: var(--measure);
-  padding-left: 1.25rem;
+  margin: 0 0 var(--space-4);
+  padding: 0;
 }
 
 .quotes li {
-  margin-bottom: 0.35em;
+  font-size: var(--text-l);
+  line-height: 1.35;
+  margin: 0 0 var(--space-3);
+  padding: 0.1em 0 0.1em var(--space-4);
+  border-left: 3px solid var(--rule-strong);
+  text-wrap: balance;
 }
 
+/* The tools the marks show in, by name; no logos, which are not ours to show. */
+.apps {
+  list-style: none;
+  margin: 0 0 1em;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  font-size: var(--text-l);
+  font-weight: 600;
+}
+
+/* The headline and the subline of brand.md, section 3, each on its own line. */
 .tagline {
   font-size: clamp(1.25rem, 1.05rem + 1vw, 1.75rem);
   line-height: 1.3;
 }
 
-/* Status words. The word carries the meaning; the colour only repeats it. */
+.tagline strong {
+  display: block;
+}
+
+/* Status words: today, planned, phase 2. The word carries the meaning; the shape of the border repeats it. */
 
 .status {
   display: inline-block;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   line-height: 1.3;
-  padding: 0.2rem 0.55rem;
+  padding: 0.15rem 0.5rem;
   border: 1.5px solid currentColor;
   border-radius: var(--radius-s);
   white-space: nowrap;
+  vertical-align: middle;
 }
 
 .status-today {
-  color: #FFFFFF;
-  background: var(--trace-teal-deep);
-  border-color: var(--trace-teal-deep);
-}
-
-@media (prefers-color-scheme: dark) {
-  .status-today {
-    color: var(--slate);
-    background: var(--trace-teal-light);
-    border-color: var(--trace-teal-light);
-  }
+  color: var(--accent-text);
+  background: var(--tint);
+  border-color: var(--accent-text);
 }
 
 .status-planned {
@@ -330,78 +621,538 @@ a:hover {
   border-style: dashed;
 }
 
-/* Features */
+/* Features: one card per feature, with its demonstration */
 
 .features {
-  list-style: none;
-  margin: 1.5rem 0 0;
-  padding: 0;
   display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-5);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+  margin-top: var(--space-6);
 }
 
-.features li {
+/* 1rem of padding at 320 px, 1.5rem from about 720 px: the demonstration keeps the width it needs. */
+.feature {
   background: var(--surface);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-l);
-  padding: 1.1rem 1.25rem;
+  padding: clamp(1rem, 0.6rem + 2vw, 1.5rem);
+  min-width: 0;
 }
 
-.features h3 {
-  margin: 0 0 0.35rem;
+/* Cards side by side share their rows, so that their headings, their text and their demonstrations start on one
+   line. A browser without subgrid lays each card out on its own, as before. */
+@supports (grid-template-rows: subgrid) {
+  .features > .feature:not(.feature-lead) {
+    display: grid;
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+    row-gap: 0;
+    align-content: start;
+  }
 }
 
-.features p {
+.feature-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.feature-head h3 {
   margin: 0;
 }
 
-/* Screenshots and placeholders */
-
-.shots {
-  display: grid;
-  gap: 1.25rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
-  margin-top: 1.75rem;
+.feature > p {
+  margin-bottom: var(--space-4);
 }
 
-figure {
+.feature-lead {
+  grid-column: 1 / -1;
+}
+
+/* The first card is wide: its text on the left, its demonstration over three rows on the right. The rows have no
+   gap, so the heading sits as close to its text as in the other cards, and the last row takes what is left. */
+@media (min-width: 56rem) {
+  .feature-lead {
+    display: grid;
+    grid-template-columns: minmax(14rem, 0.8fr) minmax(0, 1.6fr);
+    grid-template-rows: auto auto 1fr;
+    gap: 0 var(--space-6);
+    align-items: start;
+  }
+
+  .feature-lead .feature-head,
+  .feature-lead > p {
+    grid-column: 1;
+  }
+
+  .feature-lead .feature-demo {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+  }
+}
+
+/* The demonstration */
+
+/* The space of a demonstration is reserved before the script mounts it, so that a card does not grow when it does:
+   the stage at 16:10, the state line (--demo-lines), the controls (--demo-controls) and the thumbnail of the
+   screenshot demonstration (--demo-thumb). The heights were measured on 2026-10-06 with the font loaded, the longest
+   line of each play and each demonstration's own controls, in three bands of the stage's width; each is the most its
+   band needs, so a card may keep a little space but does not grow. When the lines or controls of a demonstration
+   change, measure again. Only with scripting on: without the script a card stands as text. */
+.feature-demo {
+  container: demo / inline-size;
+  --demo-lines: 3;
+  --demo-controls: 2rem;
+  --demo-thumb: 0rem;
+}
+
+[data-demo="boards"] .feature-demo { --demo-controls: 6.75rem; }
+[data-demo="colour"] .feature-demo { --demo-controls: 9.5rem; }
+[data-demo="toolbar"] .feature-demo { --demo-controls: 7rem; }
+[data-demo="capture"] .feature-demo { --demo-thumb: 8.5rem; }
+
+@container demo (max-width: 29.99rem) {
+  .feature-demo::after,
+  .demo { --demo-lines: 4; }
+  [data-demo="fade"] .feature-demo::after,
+  [data-demo="fade"] .demo { --demo-controls: 4rem; }
+  [data-demo="colour"] .feature-demo::after,
+  [data-demo="colour"] .demo { --demo-controls: 11.25rem; }
+  [data-demo="toolbar"] .feature-demo::after,
+  [data-demo="toolbar"] .demo { --demo-controls: 9.25rem; }
+}
+
+@container demo (max-width: 20.49rem) {
+  .feature-demo::after,
+  .demo { --demo-lines: 6; }
+  [data-demo="draw"] .feature-demo::after,
+  [data-demo="draw"] .demo { --demo-controls: 4.5rem; }
+  [data-demo="fade"] .feature-demo::after,
+  [data-demo="fade"] .demo { --demo-controls: 5.75rem; }
+  [data-demo="boards"] .feature-demo::after,
+  [data-demo="boards"] .demo { --demo-controls: 9rem; }
+  [data-demo="colour"] .feature-demo::after,
+  [data-demo="colour"] .demo { --demo-controls: 13rem; }
+  [data-demo="toolbar"] .feature-demo::after,
+  [data-demo="toolbar"] .demo { --demo-controls: 13.75rem; }
+  [data-demo="capture"] .feature-demo::after,
+  [data-demo="capture"] .demo { --demo-thumb: 10rem; }
+}
+
+@media (scripting: enabled) {
+  .feature-demo:empty::before {
+    content: "";
+    display: block;
+    aspect-ratio: 16 / 10;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    background: var(--screen-bg);
+  }
+
+  .feature-demo:empty::after {
+    content: "";
+    display: block;
+    height: calc(var(--space-3) + var(--demo-lines) * var(--leading) * var(--text-s) + var(--space-3) + var(--demo-controls));
+  }
+
+  [data-demo="capture"] .feature-demo:empty::after {
+    height: calc(var(--space-3) + var(--demo-lines) * var(--leading) * var(--text-s) + var(--space-3) + var(--demo-thumb) + var(--space-3) + var(--demo-controls));
+  }
+}
+
+.demo {
   margin: 0;
 }
 
-figure img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: var(--radius-l);
+.demo .demo-state {
+  min-height: calc(var(--demo-lines) * var(--leading) * var(--text-s));
+}
+
+.demo .demo-controls {
+  min-height: var(--demo-controls);
+}
+
+.demo-stage {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--screen-bg);
   border: 1px solid var(--rule);
 }
 
-.placeholder img {
-  border: 2px dashed var(--rule);
+.demo-stage svg,
+.demo-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-figcaption {
-  font-size: 0.9375rem;
-  color: var(--text-soft);
-  margin-top: 0.5rem;
+.demo-label {
+  position: absolute;
+  bottom: var(--space-2);
+  left: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-s);
+  background: var(--demo-label-bg);
+  color: var(--demo-label-text);
+  pointer-events: none;
 }
+
+.demo-state {
+  display: grid;
+  font-size: var(--text-s);
+  color: var(--text-soft);
+  min-height: 1.5em;
+  margin: var(--space-3) 0 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Every line a play says lies, hidden, in the grid cell of the line that shows: the state line keeps the height of
+   the longest, and the card does not grow or shrink while the play runs. */
+.demo-state > *,
+.demo-state-fits > * {
+  grid-area: 1 / 1;
+}
+
+.demo-state-fits {
+  display: grid;
+  visibility: hidden;
+  user-select: none;
+}
+
+.demo-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-3);
+}
+
+/* A control is 32 px high, above the 24 px target of WCAG 2.5.8. Its edge, the soft text colour at 75 percent, has at
+   least 3:1 against the card in both schemes (1.4.11). */
+.btn {
+  font: inherit;
+  font-size: var(--text-s);
+  font-weight: 500;
+  line-height: 1.25;
+  min-height: 2rem;
+  padding: 0.25rem 0.75rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1.5px solid color-mix(in srgb, var(--text-soft) 75%, transparent);
+  border-radius: var(--radius-m);
+  cursor: pointer;
+}
+
+.btn:hover {
+  border-color: var(--accent-text);
+}
+
+/* A pressed toggle is filled, so that it differs in lightness and not only in hue: 6.2:1 light, 8.8:1 dark. */
+.btn[aria-pressed="true"] {
+  background: var(--accent-text);
+  border-color: var(--accent-text);
+  color: var(--bg);
+}
+
+/* The play control keeps the width of its longest label: the labels share one grid cell and the copy is hidden. */
+.demo-play {
+  display: inline-grid;
+  place-items: center;
+}
+
+.demo-play > span {
+  grid-area: 1 / 1;
+}
+
+.demo-play-fit {
+  visibility: hidden;
+}
+
+/* The live region: a screen reader reads it; nobody sees it. */
+.demo-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.control-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.control-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-right: var(--space-1);
+  padding: 0;
+}
+
+/* A legend sits in the row, like the label of a group: floated, it is no longer drawn above the fieldset. */
+.control-group > legend {
+  float: left;
+}
+
+/* A radio and its words are one target, at least 24 px high (WCAG 2.5.8). */
+.radio {
+  font-size: var(--text-s);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.5rem;
+  margin-right: var(--space-2);
+  cursor: pointer;
+}
+
+.radio input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* A colour: 24 px, with the edge of a control, so that a white or a black swatch shows against the card. */
+.swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border-radius: var(--radius-s);
+  background: var(--swatch);
+  border: 1.5px solid color-mix(in srgb, var(--text-soft) 75%, transparent);
+  cursor: pointer;
+}
+
+.swatch:hover {
+  border-color: var(--text);
+}
+
+/* The chosen colour carries a ring: a shape, not only a colour. */
+.swatch[aria-pressed="true"] {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text);
+}
+
+.control-group input[type="range"] {
+  width: 9rem;
+  height: 1.5rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.control-group output {
+  font-size: var(--text-s);
+  font-variant-numeric: tabular-nums;
+  min-width: 2ch;
+}
+
+/* The screenshot of the capture demonstration, 10 rem wide, with its file name. It keeps its space (--demo-thumb)
+   while it is hidden, so that the card does not grow when it shows. */
+.demo-thumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+  min-height: var(--demo-thumb);
+}
+
+.demo-thumb[hidden] {
+  display: flex;
+  visibility: hidden;
+}
+
+.demo-thumb .thumb {
+  width: 10rem;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-m);
+  background: var(--screen-bg);
+}
+
+.demo-thumb span {
+  font-size: var(--text-s);
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* The stand-in screen inside an SVG */
+
+/* A shape of class sc-NAME is filled with --screen-NAME; the sandbox's canvas reads the same tokens. */
+.sc-bg { fill: var(--screen-bg); }
+.sc-bar { fill: var(--screen-bar); }
+.sc-side { fill: var(--screen-side); }
+.sc-edge { fill: var(--screen-edge); }
+.sc-block { fill: var(--screen-block); }
+.sc-line { fill: var(--screen-line); }
+.sc-panel { fill: var(--screen-panel); }
+.sc-shade { fill: var(--screen-shade); }
+.sc-button { fill: var(--screen-button); }
+.sc-button.sc-pressed { fill: var(--screen-pressed); }
+.sc-button-label { fill: var(--screen-button-label); }
+.sc-dropdown { fill: var(--screen-dropdown); }
+.mon-frame { fill: var(--screen-frame); }
+
+/* Text marks are Segoe UI in the build (spec 6.2); other systems show their own interface font. */
+.sc-text {
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  dominant-baseline: hanging;
+}
+
+.pointer path {
+  fill: #FFFFFF;
+  stroke: #1A1F24;
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+
+.lens-frame {
+  fill: none;
+  stroke: var(--lens-frame);
+  stroke-width: 2;
+}
+
+.dim-mask {
+  fill: rgba(0, 0, 0, 0.5);
+  fill-rule: evenodd;
+}
+
+.dim-frame {
+  fill: none;
+  stroke: #FFFFFF;
+  stroke-width: 2;
+}
+
+/* An AI's marks: dashed, neutral grey, an open ring at each click (brand.md, section 7). */
+.ai-ink {
+  stroke: var(--ai);
+}
+
+.ai-ring {
+  fill: none;
+  stroke: var(--ai);
+  stroke-width: 2;
+}
+
+/* The stand-in toolbar, in the build's theme colours (spec 6.9). Light: #F7F7F8 at 95 percent, text #202124, accent
+   #0A6B7A, the active tint and the draw-mode button #00A3BF at 20 percent. Dark: #202124 at 94 percent, text #EEEEEE,
+   accent #4DD0E1, the tints #4DD0E1 at 25 and 33 percent. Separators, popup edges, swatch edges and fields as the
+   build's. The draw-mode glow is #00E5FF in both. Auto follows the visitor. */
+.tb,
+.tb-light {
+  color: #202124;
+  --tb-shell: rgba(247, 247, 248, 0.95);
+  --tb-solid: #F7F7F8;
+  --tb-active: rgba(0, 163, 191, 0.2);
+  --tb-mode-on: rgba(0, 163, 191, 0.2);
+  --tb-accent: #0A6B7A;
+  --tb-sep: rgba(0, 0, 0, 0.15);
+  --tb-popup-edge: rgba(0, 0, 0, 0.15);
+  --tb-swatch-edge: rgba(0, 0, 0, 0.2);
+  --tb-field: rgba(0, 0, 0, 0.08);
+}
+
+.tb-dark {
+  color: #EEEEEE;
+  --tb-shell: rgba(32, 33, 36, 0.94);
+  --tb-solid: #202124;
+  --tb-active: rgba(77, 208, 225, 0.25);
+  --tb-mode-on: rgba(77, 208, 225, 0.33);
+  --tb-accent: #4DD0E1;
+  --tb-sep: rgba(255, 255, 255, 0.2);
+  --tb-popup-edge: rgba(255, 255, 255, 0.2);
+  --tb-swatch-edge: rgba(255, 255, 255, 0.2);
+  --tb-field: rgba(255, 255, 255, 0.13);
+}
+
+@media screen and (prefers-color-scheme: dark) {
+  .tb-auto {
+    color: #EEEEEE;
+    --tb-shell: rgba(32, 33, 36, 0.94);
+    --tb-solid: #202124;
+    --tb-active: rgba(77, 208, 225, 0.25);
+    --tb-mode-on: rgba(77, 208, 225, 0.33);
+    --tb-accent: #4DD0E1;
+    --tb-sep: rgba(255, 255, 255, 0.2);
+    --tb-popup-edge: rgba(255, 255, 255, 0.2);
+    --tb-swatch-edge: rgba(255, 255, 255, 0.2);
+    --tb-field: rgba(255, 255, 255, 0.13);
+  }
+}
+
+.tb-shell { fill: var(--tb-shell); }
+.tb-popup { stroke: var(--tb-popup-edge); stroke-width: 1; }
+.tb-active { fill: var(--tb-active); }
+.tb-mode-on { fill: var(--tb-mode-on); }
+/* The build shows a button that is on by its tint alone, 1.2:1 to 1.8:1 against the shell. The stand-in adds an
+   outline in the accent, so that the state reads at card size with 3:1 or more (WCAG 1.4.11). */
+.tb-edge { fill: none; stroke: var(--tb-accent); stroke-width: 1.5; }
+.tb-sep { stroke: var(--tb-sep); stroke-width: 1; }
+.tb-accent { color: var(--tb-accent); }
+.tb-stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tb-fill { fill: currentColor; }
+.tb-ring { fill: none; stroke: currentColor; stroke-width: 1.5; opacity: 0.8; }
+.tb-main-disc { fill: currentColor; }
+.tb-main-arc { fill: none; stroke: var(--tb-solid); stroke-width: 1.75; stroke-linecap: round; }
+.tb-main-dot { fill: var(--tb-solid); }
+.tb-swatch { stroke: var(--tb-swatch-edge); stroke-width: 1; }
+.tb-swatch-on { stroke: currentColor; stroke-width: 2; }
+.tb-textbutton { fill: var(--tb-field); }
+.tb-field { fill: var(--tb-field); }
+.tb-text { fill: currentColor; font-size: 13px; font-family: system-ui, "Segoe UI", sans-serif; }
+.tb-track { stroke: var(--tb-sep); stroke-width: 3; stroke-linecap: round; }
+.tb-knob { fill: var(--tb-accent); }
 
 /* The trace mock: number, action, author, reason, in that order (brand.md, section 7). */
 
+.trace-demo {
+  display: grid;
+  gap: var(--space-5);
+  margin-top: var(--space-4);
+}
+
+@media (min-width: 56rem) {
+  .trace-demo {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
 .trace {
-  background: var(--surface);
+  background: var(--bg);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-l);
-  padding: 1rem 1.25rem;
-  margin: 1.5rem 0 0;
-  max-width: 52rem;
+  padding: var(--space-4) var(--space-5);
+  margin: 0;
 }
 
 .trace-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
 }
 
 .trace-title {
@@ -421,8 +1172,8 @@ figcaption {
     "n action"
     "n author"
     "n reason";
-  gap: 0.15rem 0.75rem;
-  padding: 0.7rem 0;
+  gap: 0.15rem var(--space-3);
+  padding: var(--space-3) 0;
   border-top: 1px solid var(--rule);
 }
 
@@ -430,12 +1181,10 @@ figcaption {
   border-top: 0;
 }
 
-@media (min-width: 44rem) {
-  .step {
-    grid-template-columns: 2rem minmax(10rem, 1.1fr) minmax(8rem, 0.8fr) 1.5fr;
-    grid-template-areas: "n action author reason";
-    align-items: baseline;
-  }
+/* A step not yet added keeps its space, so that the card does not grow while the play adds the steps; a screen reader
+   skips it until it shows. */
+.step-hidden {
+  visibility: hidden;
 }
 
 .step-n {
@@ -454,12 +1203,13 @@ figcaption {
   grid-area: author;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
+  min-height: 1.5rem;
   color: var(--text-soft);
 }
 
 .author-label {
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -472,12 +1222,17 @@ figcaption {
 .step-reason {
   grid-area: reason;
   color: var(--text-soft);
+  font-size: var(--text-s);
 }
 
+/* Without the script the author's mark is a plain dot or ring, 10 px. The script puts the step mark (1.5rem, its dot at
+   the right) in its place: the row's height and the dot's left edge are the same in both, so nothing moves when it
+   mounts. */
 .dot,
 .ring {
   width: 10px;
   height: 10px;
+  margin-left: calc(1.5rem - 10px);
   border-radius: 50%;
   flex: none;
 }
@@ -491,32 +1246,177 @@ figcaption {
   background: transparent;
 }
 
-.trace figcaption {
-  margin-top: 0.75rem;
+/* A step being added: the stroke draws itself and ends in the author's dot or ring, 10 px across as in the mock
+   without the script. At the default text size one grid unit is one pixel. */
+.step-mark {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  overflow: visible;
 }
 
-/* Phase 2 intents */
+.step-mark .step-stroke {
+  fill: none;
+  stroke: var(--person);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+}
+
+.step-mark.ai .step-stroke {
+  stroke: var(--ai);
+}
+
+.step-mark .step-dot {
+  fill: var(--person);
+  opacity: 0;
+}
+
+.step-mark .step-ring {
+  fill: none;
+  stroke: var(--ai);
+  stroke-width: 2;
+  opacity: 0;
+}
+
+.is-drawn .step-stroke {
+  animation: draw 1100ms var(--ease) forwards;
+}
+
+.is-drawn .step-dot,
+.is-drawn .step-ring {
+  animation: appear 1ms linear 770ms forwards;
+}
+
+.is-instant .step-stroke {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+
+.is-instant .step-dot,
+.is-instant .step-ring {
+  animation: none;
+  opacity: 1;
+}
+
+.trace figcaption {
+  margin-top: var(--space-3);
+  font-size: var(--text-s);
+  color: var(--text-soft);
+}
+
+/* The sandbox */
+
+/* The stage, the state line and the tools, in the order of a card. Their space is reserved before the script mounts
+   them, so that the section does not grow: the stage at 16:10, the state line (--sandbox-lines) and the tools
+   (--sandbox-tools), by the sandbox's width. Measured on 2026-10-07 with the font loaded; when the lines or the tools
+   change, measure again. */
+.sandbox {
+  container: sandbox / inline-size;
+  margin-top: var(--space-5);
+  max-width: 52rem;
+  --sandbox-lines: 2;
+  --sandbox-tools: 4.5rem;
+}
+
+/* The bands, each the most its widths need; a sandbox may keep a little space, but it does not grow. */
+@container sandbox (max-width: 45.5rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 7rem; } }
+@container sandbox (max-width: 37.5rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 9rem; } }
+@container sandbox (max-width: 30.5rem) { .sandbox::after, .sandbox > * { --sandbox-lines: 3; } }
+@container sandbox (max-width: 24.25rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 11rem; } }
+@container sandbox (max-width: 21.875rem) { .sandbox::after, .sandbox > * { --sandbox-lines: 4; } }
+@container sandbox (max-width: 19.875rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 12.75rem; } }
+@container sandbox (max-width: 18.875rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 14.5rem; } }
+@container sandbox (max-width: 17.875rem) { .sandbox::after, .sandbox > * { --sandbox-lines: 5; } }
+@container sandbox (max-width: 17.125rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 16.75rem; } }
+@container sandbox (max-width: 15.75rem) { .sandbox::after, .sandbox > * { --sandbox-tools: 19rem; } }
+
+@media (scripting: enabled) {
+  .sandbox:empty::before {
+    content: "";
+    display: block;
+    aspect-ratio: 16 / 10;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    background: var(--screen-bg);
+  }
+
+  .sandbox:empty::after {
+    content: "";
+    display: block;
+    height: calc(var(--space-3) + var(--sandbox-lines) * var(--leading) * var(--text-s) + var(--space-3) + var(--sandbox-tools));
+  }
+}
+
+.sandbox .demo-state {
+  min-height: calc(var(--sandbox-lines) * var(--leading) * var(--text-s));
+}
+
+.sandbox-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-3);
+  min-height: var(--sandbox-tools);
+}
+
+.sandbox-canvas {
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.note {
+  display: inline-block;
+  border: 2px dashed var(--rule-strong);
+  border-radius: var(--radius-m);
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-soft);
+}
+
+/* Phase 2 intents: Learn and Oversee side by side from 40rem, each under a rule. */
+
+.section .intents {
+  display: grid;
+  gap: var(--space-4) var(--space-6);
+  max-width: 48rem;
+  margin: var(--space-5) 0;
+}
+
+@media (min-width: 40rem) {
+  .section .intents {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.intents > div {
+  border-top: 2px solid var(--rule-strong);
+  padding-top: var(--space-3);
+}
 
 .intents dt {
-  font-weight: 600;
-  margin-top: 0.75em;
+  font-weight: 700;
 }
 
 .intents dd {
-  margin: 0.15em 0 0;
+  margin: var(--space-1) 0 0;
 }
 
 /* Download */
 
+/* 1rem of padding at 320 px, as the cards have, so the text keeps its width there. */
 .download-box {
   background: var(--surface);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-l);
-  padding: 1.25rem 1.5rem;
+  padding: clamp(1rem, 0.6rem + 2vw, 1.5rem) clamp(1rem, 0.2rem + 4vw, 2rem);
   max-width: var(--measure);
 }
 
 .download-status {
-  font-size: 1.125rem;
+  font-size: var(--text-l);
   margin-bottom: 0.5em;
 }
 
@@ -528,9 +1428,9 @@ figcaption {
 
 .site-footer {
   border-top: 1px solid var(--rule);
-  padding: 2rem 0 3rem;
+  padding: var(--space-6) 0 var(--space-7);
   color: var(--text-soft);
-  font-size: 0.9375rem;
+  font-size: var(--text-s);
 }
 
 .site-footer p {
@@ -538,9 +1438,83 @@ figcaption {
   max-width: var(--measure);
 }
 
-.note {
-  display: inline-block;
-  border: 2px dashed var(--rule);
-  border-radius: var(--radius-m);
-  padding: 0.4rem 0.75rem;
+.site-footer .to-top {
+  margin: var(--space-4) 0 0;
+}
+
+/* Reduced motion: everything appears at once (brand.md, 6.6). The script shows only end states. */
+
+@media (prefers-reduced-motion: reduce) {
+  .mark-stroke,
+  .is-drawn .step-stroke {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .mark-dot,
+  .is-drawn .step-dot,
+  .is-drawn .step-ring {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Print: the text and the end state of each demonstration, light on white paper, without what works only on a
+   screen: the skip link, the section links, the hero's links and mark, the controls, the way back to the top. */
+@page {
+  margin: 18mm 16mm;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  .skip,
+  .site-nav,
+  .actions,
+  .hero-mark,
+  .demo-controls,
+  .sandbox-tools,
+  .to-top {
+    display: none;
+  }
+
+  .mark-stroke {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  .mark-dot {
+    animation: none;
+    opacity: 1;
+  }
+
+  .hero,
+  .section {
+    padding: var(--space-5) 0;
+  }
+
+  h2,
+  h3,
+  .section-head,
+  .feature-head {
+    break-after: avoid;
+  }
+
+  .feature,
+  .trace,
+  .quotes li,
+  .intents > div,
+  .download-box,
+  .sandbox,
+  .demo {
+    break-inside: avoid;
+  }
+
+  /* The label that says a picture is a demonstration keeps its dark plate, which a printer leaves out by default. */
+  .demo-label {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }
