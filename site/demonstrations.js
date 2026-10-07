@@ -1029,11 +1029,12 @@
       h.controls.append(set);
       return h;
     },
-    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ active: 'arrow', on: {} }); movePointer(h, P(372, 250)); },
+    reset(h) { h.doc.reset(); clearExtras(h); h.tb.set({ active: null, on: {} }); movePointer(h, P(372, 250)); },
     async play(run, h) {
       const seconds = h.choice();
       const [name] = FADE_CHOICES.find(([, s]) => s === seconds);
       h.say('Fading ink is off. An arrow points at the button, and it stays.');
+      await click(run, h, 'arrow', { active: 'arrow' });
       await drawShape(run, h, 'arrow', P(372, 250), P(474, 314), { ms: 600 });
       await run.pause(500);
       h.say('The fade button: Off, Short 3 s, Medium 8 s, Long 20 s.');
@@ -1181,17 +1182,20 @@
       movePointer(h, P(400, 240));
     },
     async play(run, h) {
-      h.tb.set({ active: 'pen' });
       h.say('Marks on the live screen.');
+      await click(run, h, 'pen', { active: 'pen' });
       await drawStroke(run, h, curve(P(190, 172), P(250, 160), P(330, 184), P(400, 170), 30, 1.2), { ms: 600 });
+      await click(run, h, 'arrow', { active: 'arrow' });
       await drawShape(run, h, 'arrow', P(430, 384), P(496, 340), { ms: 400 });
       await run.pause(500);
       h.say('The board button opens a list: None, the four boards, and the monitor to show them on.');
       await pickBoard(run, h, 'white');
       h.say('Whiteboard, over the live screen of this monitor. Draw mode is on; the screen marks wait underneath.');
       await run.pause(500);
+      await click(run, h, 'rectangle', { active: 'rectangle' });
       await drawShape(run, h, 'rectangle', P(180, 110), P(290, 170), { doc: h.boardDoc, ms: 500 });
       await drawShape(run, h, 'rectangle', P(380, 230), P(490, 290), { doc: h.boardDoc, ms: 500 });
+      await click(run, h, 'arrow', { active: 'arrow' });
       await drawShape(run, h, 'arrow', P(292, 142), P(378, 228), { doc: h.boardDoc, ms: 500 });
       await run.pause(700);
       h.say('Blackboard. The marks on the board stay when you switch from one board to another.');
